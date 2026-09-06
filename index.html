@@ -474,7 +474,6 @@ function logout(){
 }
 function initAfterLogin(){
   loadAll().then(() => {
-    checkOldLocalData();
     render();
   });
   if(unsubscribeTurnos) unsubscribeTurnos();
@@ -832,11 +831,16 @@ function renderSidebar(){
     <div class="nav-item ${STATE.tab === tab ? 'active' : ''}" onclick="goTab('${tab}')">
       <i class="fa-solid ${icon}"></i> ${label} ${dot ? '<span class="dot"></span>' : ''}
     </div>`;
+  const itemBadge = (tab, icon, label, count) => `
+    <div class="nav-item ${STATE.tab === tab ? 'active' : ''}" onclick="goTab('${tab}')">
+      <i class="fa-solid ${icon}"></i> ${label} ${count > 0 ? `<span style="margin-left:auto;background:#A94E30;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;">${count}</span>` : ''}
+    </div>`;
   document.getElementById('sidebar').innerHTML = `
     <div class="sidebar-brand"><i class="fa-solid fa-comment-medical"></i> FonoGestión</div>
     <div class="nav-group">
       <div class="nav-group-label">Principal</div>
       ${item('dashboard', 'fa-gauge', 'Dashboard')}
+      ${itemBadge('notificaciones', 'fa-bell', 'Notificaciones', STATE.solicitudes.length)}
       ${item('turnos', 'fa-calendar-check', 'Turnos', turnosHoy > 0)}
       ${item('pacientes', 'fa-users', 'Pacientes')}
       ${item('historia', 'fa-notes-medical', 'Historia clínica')}
@@ -857,7 +861,12 @@ function renderSidebar(){
       <div style="margin-top:8px;cursor:pointer;" onclick="openRestoreFile()">
         <i class="fa-solid fa-upload" style="margin-right:6px;"></i>Restaurar backup
       </div>
-      <div style="margin-top:10px;font-size:11px;color:var(--paper-dim);opacity:.8;">Los datos se guardan en este navegador.</div>
+      <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);">
+        <div style="font-size:11px;color:var(--paper-dim);margin-bottom:6px;word-break:break-all;">${esc(currentUser ? currentUser.email : '')}</div>
+        <div style="cursor:pointer;color:#A32D2D;" onclick="logout()">
+          <i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i>Cerrar sesión
+        </div>
+      </div>
     </div>
   `;
 }
@@ -867,6 +876,7 @@ function render(skipSearchSync){
   let html = '';
   if(STATE.tab === 'dashboard') html = renderDashboard();
   else if(STATE.tab === 'turnos') html = renderTurnos();
+  else if(STATE.tab === 'notificaciones') html = renderNotificaciones();
   else if(STATE.tab === 'pacientes') html = STATE.selectedPatientId ? renderPacienteDetail() : renderPacientesList();
   else if(STATE.tab === 'historia') html = renderHistoriaClinica();
   else if(STATE.tab === 'informes') html = renderInformes();
@@ -1006,21 +1016,6 @@ function renderTurnos(){
         <button class="btn btn-solid" onclick="openTurnoModal()"><i class="fa-solid fa-plus"></i>Nuevo turno</button>
       </div>
     </div>
-    ${STATE.solicitudes.length > 0 ? `
-    <div class="card" style="margin-bottom:20px;border-color:#5B4FE0;">
-      <h3 style="margin:0 0 12px;font-size:15px;color:var(--brass-bright);"><i class="fa-solid fa-bell"></i> Solicitudes de turno online (${STATE.solicitudes.length})</h3>
-      ${[...STATE.solicitudes].sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora)).map(s => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:8px;">
-          <div>
-            <div style="font-weight:700;font-size:13.5px;">${esc(s.nombre)} · ${esc(s.telefono)}</div>
-            <div style="font-size:12px;color:var(--paper-dim);">${formatDate(s.fecha)} · ${esc(s.hora)}${s.motivo ? ' · ' + esc(s.motivo) : ''}</div>
-          </div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn btn-sm btn-solid" onclick="aprobarSolicitud('${s.id}')"><i class="fa-solid fa-check"></i>Aprobar</button>
-            <button class="btn btn-sm btn-danger" onclick="rechazarSolicitud('${s.id}')"><i class="fa-solid fa-xmark"></i>Rechazar</button>
-          </div>
-        </div>`).join('')}
-    </div>` : ''}
     <div class="toolbar">
       <div class="view-toggle">
         <div class="${STATE.turnoView === 'calendario' ? 'active' : ''}" onclick="setTurnoView('calendario')">Calendario</div>
@@ -1032,6 +1027,30 @@ function renderTurnos(){
         </div>` : ''}
     </div>
     ${STATE.turnoView === 'calendario' ? renderTurnosCalendario() : renderTurnosLista()}
+  `;
+}
+function renderNotificaciones(){
+  const lista = [...STATE.solicitudes].sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  return `
+    <div class="main-head">
+      <div><h1>Notificaciones</h1><p class="sub">Solicitudes de turno pedidas online por tus pacientes.</p></div>
+    </div>
+    ${lista.length === 0 ? `<div class="card"><div class="empty-row">No tenés notificaciones pendientes.</div></div>` : lista.map(s => `
+      <div class="card item-card">
+        <div class="head" style="align-items:center;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="name">${esc(s.nombre)}</span>
+              <span class="pill" style="background:#EEEDFE;color:#463ACB;border-color:#CECBF6;"><i class="fa-solid fa-calendar-plus"></i> Nueva solicitud</span>
+            </div>
+            <div class="meta">${esc(s.telefono)} · ${formatDate(s.fecha)} · ${esc(s.hora)}${s.motivo ? ' · ' + esc(s.motivo) : ''}</div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-sm btn-solid" onclick="aprobarSolicitud('${s.id}')"><i class="fa-solid fa-check"></i>Aprobar</button>
+            <button class="btn btn-sm btn-danger" onclick="rechazarSolicitud('${s.id}')"><i class="fa-solid fa-xmark"></i>Rechazar</button>
+          </div>
+        </div>
+      </div>`).join('')}
   `;
 }
 function setTurnoEstadoFilter(e){ STATE.turnoEstadoFilter = e; render(); }
@@ -1211,7 +1230,7 @@ function renderPacientesList(){
             <td>${esc(p.diagnostico || '-')}</td>
             <td>${esc(p.obraSocial || 'Ninguno')}</td>
             <td>${esc(p.telefono || '-')}</td>
-            <td>${pill(ESTADO_PACIENTE_STYLE, p.estado)}</td>
+            <td><span style="cursor:pointer;" onclick="event.stopPropagation();openEstadoModal('${p.id}')">${pill(ESTADO_PACIENTE_STYLE, p.estado)}</span></td>
             <td style="text-align:right;white-space:nowrap;">
               <button class="btn btn-sm" style="border-color:#3F7A46;color:#3F7A46;" title="Contactar por WhatsApp" onclick="event.stopPropagation();openWhatsappPaciente('${p.id}')"><i class="fa-brands fa-whatsapp" style="margin:0;"></i></button>
               <button class="btn btn-sm" style="margin-left:6px;" title="Cambiar estado" onclick="event.stopPropagation();openEstadoModal('${p.id}')"><i class="fa-solid fa-arrows-rotate" style="margin:0;"></i></button>
@@ -1256,7 +1275,7 @@ function renderPacienteDetail(){
           <div><span style="color:var(--paper-dim);">Fecha de nacimiento:</span> ${formatDate(p.fechaNacimiento)}</div>
           <div><span style="color:var(--paper-dim);">Obra social:</span> ${esc(p.obraSocial || 'Ninguno')} ${p.nAfiliado ? `(N° ${esc(p.nAfiliado)})` : ''}</div>
           <div><span style="color:var(--paper-dim);">Ingreso al consultorio:</span> ${formatDate(p.fechaIngreso)}</div>
-          <div><span style="color:var(--paper-dim);">Estado:</span> ${pill(ESTADO_PACIENTE_STYLE, p.estado)}</div>
+          <div><span style="color:var(--paper-dim);">Estado:</span> <span style="cursor:pointer;" onclick="openEstadoModal('${p.id}')">${pill(ESTADO_PACIENTE_STYLE, p.estado)}</span></div>
         </div>
       </div>
       <div class="card">
