@@ -489,6 +489,7 @@ function initAfterLogin(){
   loadAll().then(() => {
     render();
   });
+  loadDisponibilidadPerfil();
   if(unsubscribeTurnos) unsubscribeTurnos();
   if(unsubscribeSolicitudes) unsubscribeSolicitudes();
   unsubscribeTurnos = col('turnos').onSnapshot(snap => {
@@ -618,6 +619,7 @@ function renderPerfil(){
         <div class="field"><label>Duración del turno (min)</label><input type="number" id="perfil-duracion" value="${d.duracionTurno}" min="10" step="5"></div>
       </div>
       <div class="field"><label>Días hacia adelante visibles para reservar</label><input type="number" id="perfil-dias-visibles" value="${d.diasVisibles || 14}" min="1" max="60"></div>
+      <div class="field"><label>Precio de la sesión particular</label><input type="number" id="perfil-precio-sesion" min="0" step="100" value="${d.precioSesion || ''}" placeholder="0"></div>
       <button class="btn btn-solid" onclick="guardarDisponibilidadPerfil()"><i class="fa-solid fa-check"></i>Guardar cambios</button>
     </div>
 
@@ -696,6 +698,7 @@ function guardarDisponibilidadPerfil(){
     horaFinal: document.getElementById('perfil-fin').value,
     duracionTurno: Number(document.getElementById('perfil-duracion').value) || 45,
     diasVisibles: Number(document.getElementById('perfil-dias-visibles').value) || 14,
+    precioSesion: Number(document.getElementById('perfil-precio-sesion').value) || 0,
     bloqueosFecha: STATE.disponibilidad.bloqueosFecha || []
   };
   col('configuracion').doc('disponibilidad').set(data).then(() => {
@@ -1330,7 +1333,7 @@ function openTurnoModal(id, presetFecha){
           </div>
           <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_TURNO_STYLE, t ? t.estado : 'pendiente')}</select></div>
           <div class="row-3">
-            <div class="field"><label>Monto de la sesión</label><input type="number" name="monto" min="0" step="1" value="${t && t.monto ? t.monto : ''}" placeholder="0"></div>
+            <div class="field"><label>Monto de la sesión</label><input type="number" name="monto" min="0" step="1" value="${t && t.monto ? t.monto : (isNew && STATE.disponibilidad && STATE.disponibilidad.precioSesion ? STATE.disponibilidad.precioSesion : '')}" placeholder="0"></div>
             <div class="field"><label>Estado de pago</label><select name="estadoPago">${styledOptionsHtml(ESTADO_PAGO_STYLE, t ? t.estadoPago : 'pendiente')}</select></div>
             <div class="field"><label>Medio de pago</label><select name="medioPago"><option value="">—</option>${optionsHtml(MEDIOS_PAGO, t ? t.medioPago : '')}</select></div>
           </div>
