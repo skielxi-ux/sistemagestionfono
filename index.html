@@ -187,9 +187,12 @@
         <label style="font-size:11px;color:#4E5860;text-transform:uppercase;letter-spacing:.04em;font-weight:700;display:block;margin-bottom:5px;">Email</label>
         <input id="login-email" type="email" style="width:100%;border:1px solid #E4E1D8;border-radius:2px;padding:10px 12px;font-size:14px;box-sizing:border-box;" placeholder="tu@email.com">
       </div>
-      <div style="margin-bottom:18px;">
+      <div style="margin-bottom:8px;">
         <label style="font-size:11px;color:#4E5860;text-transform:uppercase;letter-spacing:.04em;font-weight:700;display:block;margin-bottom:5px;">Contraseña</label>
         <input id="login-password" type="password" style="width:100%;border:1px solid #E4E1D8;border-radius:2px;padding:10px 12px;font-size:14px;box-sizing:border-box;" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div style="text-align:right;margin-bottom:18px;">
+        <a href="javascript:void(0)" onclick="forgotPassword()" style="font-size:12px;color:#4E5860;text-decoration:underline;">¿Olvidaste tu contraseña?</a>
       </div>
       <button id="login-submit-btn" onclick="submitLogin()" style="width:100%;background:#5B4FE0;border:1px solid #5B4FE0;color:#fff;font-weight:700;font-size:14.5px;padding:11px;border-radius:2px;cursor:pointer;margin-bottom:12px;">Iniciar sesión</button>
       <div style="text-align:center;font-size:13px;color:#4E5860;">
@@ -456,8 +459,35 @@ function toggleLoginMode(){
 }
 function showLoginError(msg){
   const box = document.getElementById('login-error');
+  box.style.background = '#FDEDEC';
+  box.style.color = '#A32D2D';
+  box.style.borderColor = '#F7C1C1';
   box.textContent = msg;
   box.style.display = 'block';
+}
+function showLoginSuccess(msg){
+  const box = document.getElementById('login-error');
+  box.style.background = '#EEF6EF';
+  box.style.color = '#3F7A46';
+  box.style.borderColor = '#C9E4CC';
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+function forgotPassword(){
+  const email = document.getElementById('login-email').value.trim();
+  if(!email){
+    showLoginError('Escribí tu email arriba y volvé a tocar "¿Olvidaste tu contraseña?".');
+    return;
+  }
+  auth.sendPasswordResetEmail(email).then(() => {
+    showLoginSuccess('Te enviamos un email a ' + email + ' para restablecer tu contraseña. Revisá tu bandeja de entrada (y la carpeta de spam).');
+  }).catch(err => {
+    const mensajes = {
+      'auth/user-not-found': 'No existe una cuenta con ese email.',
+      'auth/invalid-email': 'El email no es válido.'
+    };
+    showLoginError(mensajes[err.code] || ('Error: ' + err.message));
+  });
 }
 function submitLogin(){
   const email = document.getElementById('login-email').value.trim();
