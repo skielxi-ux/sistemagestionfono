@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FonoGestión · Consultorio Fonoaudiológico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --ink:#1C2B36;
+    --ink-2:#FFFFFF;
+    --ink-3:#F1EFE9;
+    --paper:#1C2B36;
+    --paper-dim:#4E5860;
+    --brass:#5B4FE0;
+    --brass-bright:#463ACB;
+    --brick:#A94E30;
+    --sage:#3F7A46;
+    --line:#E4E1D8;
+    --line-strong:#D2CDBF;
+    --radius:2px;
+    --font-display:'Lato', sans-serif;
+    --font-body:'Lato', sans-serif;
+    --font-mono:'Lato', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:#FFFFFF;
+    color:var(--ink);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  a{color:inherit;}
+  ::selection{background:var(--brass);color:#FFFFFF;}
+  h1,h2,h3{font-weight:900;}
+  .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass-bright);font-weight:700;}
+
+  .btn{font-family:var(--font-body);font-weight:600;font-size:14px;border:1px solid var(--line-strong);background:transparent;color:var(--paper);padding:10px 18px;border-radius:var(--radius);cursor:pointer;letter-spacing:.01em;transition:all .15s ease;}
+  .btn:hover{border-color:var(--brass);color:var(--brass-bright);}
+  .btn i{margin-right:6px;}
+  .btn-solid{background:var(--brass);border-color:var(--brass);color:#FFFFFF;}
+  .btn-solid:hover{background:var(--brass-bright);border-color:var(--brass-bright);color:#FFFFFF;}
+  .btn-danger{background:#FFFFFF;border-color:#E2726B;color:#E2726B;}
+  .btn-danger:hover{background:#FDEDEC;border-color:#E2726B;color:#E2726B;}
+  .btn-sm{padding:6px 12px;font-size:12.5px;}
+  .btn-ghost{border-color:transparent;padding:6px 8px;}
+  .btn-ghost:hover{border-color:transparent;background:var(--ink-3);color:var(--ink);}
+
+  input,select,textarea{font-family:var(--font-body);background:#FFFFFF;border:1px solid var(--line);color:var(--paper);padding:9px 11px;border-radius:var(--radius);font-size:13.5px;width:100%;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brass);}
+  label{font-size:11.5px;color:var(--paper-dim);display:block;margin-bottom:5px;font-family:var(--font-mono);letter-spacing:.02em;}
+  .field{margin-bottom:14px;}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+
+  .card{background:#FFFFFF;border:1px solid var(--line);border-radius:var(--radius);padding:20px;}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;padding:3px 9px;border-radius:20px;border:1px solid var(--line-strong);color:var(--paper-dim);white-space:nowrap;}
+
+  .app-shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh;}
+  .sidebar{border-right:1px solid var(--line);padding:24px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .sidebar-brand{display:flex;align-items:center;gap:8px;padding:0 6px 20px;font-family:var(--font-display);font-size:16px;font-weight:900;color:var(--brass-bright);border-bottom:1px solid var(--line);margin-bottom:16px;}
+  .nav-group{margin-bottom:16px;}
+  .nav-group-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--paper-dim);padding:0 8px 8px;font-weight:700;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius);font-size:13.5px;cursor:pointer;color:var(--paper-dim);margin-bottom:2px;}
+  .nav-item i{width:16px;text-align:center;flex-shrink:0;font-size:13px;}
+  .nav-item:hover{color:var(--ink);background:var(--ink-3);}
+  .nav-item.active{color:#FFFFFF;background:var(--brass);font-weight:700;}
+  .nav-item .dot{width:5px;height:5px;border-radius:50%;background:var(--brick);flex-shrink:0;margin-left:auto;}
+  .sidebar-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:14px;font-size:12px;color:var(--paper-dim);}
+  .sidebar-foot .agname{color:var(--paper);font-weight:600;font-size:13px;}
+
+  .main{padding:30px 34px;overflow-y:auto;}
+  .main-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+  .main-head h1{font-family:var(--font-display);font-size:26px;margin:0 0 6px;font-weight:600;}
+  .main-head .sub{color:var(--paper-dim);font-size:13.5px;margin:0;}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+  .kpi{border:1px solid var(--line);padding:16px;border-radius:var(--radius);position:relative;}
+  .kpi .lbl{font-family:var(--font-mono);font-size:10px;color:var(--paper-dim);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;padding-right:22px;}
+  .kpi .val{font-family:var(--font-display);font-size:22px;font-weight:600;}
+  .kpi .val.brass{color:var(--brass-bright);}
+  .kpi .val.sage{color:var(--sage);}
+  .kpi .val.brick{color:var(--brick);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--paper-dim);padding:8px 10px;border-bottom:1px solid var(--line-strong);}
+  td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr.clickable:hover{background:var(--ink-3);cursor:pointer;}
+  .empty-row{text-align:center;color:var(--paper-dim);padding:34px 10px;font-size:13px;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px;}
+  .toolbar-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .filter-chip{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.02em;padding:6px 12px;border-radius:20px;border:1px solid var(--line-strong);color:var(--paper-dim);cursor:pointer;white-space:nowrap;}
+  .filter-chip:hover{border-color:var(--brass);color:var(--brass-bright);}
+  .filter-chip.active{background:var(--brass);border-color:var(--brass);color:#fff;}
+  .search-wrap{position:relative;max-width:360px;margin-bottom:22px;}
+  .search-wrap i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--paper-dim);font-size:13px;}
+  .search-wrap input{padding-left:34px;}
+
+  .item-card{margin-bottom:10px;}
+  .item-card .head{display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;gap:10px;}
+  .item-card .name{font-family:var(--font-display);font-size:15px;font-weight:700;}
+  .item-card .meta{font-size:13px;color:var(--paper-dim);margin-top:4px;}
+  .item-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+
+  .grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+  .material-card{border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:8px;}
+  .material-card .cat{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-bright);font-weight:700;}
+  .material-card .title{font-family:var(--font-display);font-size:15px;font-weight:700;}
+  .material-card .desc{font-size:13px;color:var(--paper-dim);line-height:1.5;flex:1;}
+
+  .timeline{border-left:2px solid var(--line-strong);margin-left:8px;padding-left:22px;}
+  .timeline-item{position:relative;padding-bottom:22px;}
+  .timeline-item:last-child{padding-bottom:0;}
+  .timeline-item::before{content:'';position:absolute;left:-28px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--brass);border:2px solid #fff;box-shadow:0 0 0 1px var(--line-strong);}
+  .timeline-date{font-family:var(--font-mono);font-size:11px;color:var(--paper-dim);letter-spacing:.03em;margin-bottom:4px;}
+  .timeline-body{font-size:13.5px;line-height:1.6;white-space:pre-wrap;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(28,43,54,.5);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow-y:auto;}
+  .modal-box{background:#FFFFFF;border:1px solid var(--line);border-radius:var(--radius);padding:20px;width:100%;max-width:480px;margin:auto;}
+  .modal-box.wide{max-width:640px;}
+  .modal-box h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0;}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--brass);color:#FFFFFF;padding:12px 22px;border-radius:var(--radius);font-size:13.5px;font-weight:700;z-index:400;}
+
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px;}
+
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .cal-nav-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--line-strong);background:#fff;color:var(--paper-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;}
+  .cal-nav-btn:hover{border-color:var(--brass);color:var(--brass-bright);}
+  .cal-title{font-family:var(--font-display);font-size:18px;font-weight:600;text-transform:capitalize;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+  .cal-dow{background:var(--ink-3);font-family:var(--font-mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--paper-dim);text-align:center;padding:8px 4px;border-bottom:1px solid var(--line);}
+  .cal-cell{min-height:96px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px;background:#fff;display:flex;flex-direction:column;gap:3px;cursor:pointer;}
+  .cal-cell:hover{background:var(--ink-3);}
+  .cal-cell:nth-child(7n){border-right:none;}
+  .cal-cell.out{background:#FBFAF8;}
+  .cal-daynum{font-family:var(--font-mono);font-size:11.5px;color:var(--paper-dim);margin-bottom:2px;}
+  .cal-cell.out .cal-daynum{color:#C7C2B5;}
+  .cal-cell.today .cal-daynum{color:#fff;background:var(--brass);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+  .cal-block{font-size:10.5px;line-height:1.3;padding:3px 5px;border-radius:2px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cal-more{font-size:10px;color:var(--paper-dim);padding:1px 5px;}
+  .view-toggle{display:flex;border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;}
+  .view-toggle div{padding:8px 14px;font-size:12.5px;cursor:pointer;color:var(--paper-dim);font-family:var(--font-mono);}
+  .view-toggle div.active{background:var(--brass);color:#fff;}
+
+  @media (max-width:880px){
+    .app-shell{grid-template-columns:1fr;}
+    .sidebar{position:relative;height:auto;flex-direction:row;overflow-x:auto;align-items:center;padding:14px 12px;gap:4px;}
+    .sidebar-brand{border:none;padding:0 10px 0 0;margin:0;}
+    .nav-group{display:flex;gap:4px;margin-bottom:0;}
+    .nav-group-label{display:none;}
+    .sidebar-foot{display:none;}
+    .nav-item{white-space:nowrap;}
+    .kpi-grid{grid-template-columns:1fr 1fr !important;}
+    .main{padding:18px;}
+    .row-2,.row-3{grid-template-columns:1fr;}
+    .cal-cell{min-height:64px;}
+    .cal-block{font-size:9.5px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#FBFAF8;padding:20px;">
+  <div style="width:100%;max-width:380px;">
+    <div style="display:flex;align-items:center;gap:8px;font-family:'Lato',sans-serif;font-size:18px;font-weight:900;color:#463ACB;margin-bottom:24px;justify-content:center;">
+      <i class="fa-solid fa-comment-medical"></i> FonoGestión
+    </div>
+    <div style="background:#fff;border:1px solid #E4E1D8;border-radius:2px;padding:24px;">
+      <h2 id="login-title" style="font-family:'Lato',sans-serif;font-size:17px;margin:0 0 4px;">Iniciar sesión</h2>
+      <p id="login-sub" style="font-size:13px;color:#4E5860;margin:0 0 18px;">Entrá con tu cuenta para acceder a tus pacientes y turnos.</p>
+      <div id="login-error" style="display:none;background:#FDEDEC;color:#A32D2D;border:1px solid #F7C1C1;border-radius:2px;padding:10px 12px;font-size:12.5px;margin-bottom:14px;"></div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;color:#4E5860;text-transform:uppercase;letter-spacing:.04em;font-weight:700;display:block;margin-bottom:5px;">Email</label>
+        <input id="login-email" type="email" style="width:100%;border:1px solid #E4E1D8;border-radius:2px;padding:10px 12px;font-size:14px;box-sizing:border-box;" placeholder="tu@email.com">
+      </div>
+      <div style="margin-bottom:18px;">
+        <label style="font-size:11px;color:#4E5860;text-transform:uppercase;letter-spacing:.04em;font-weight:700;display:block;margin-bottom:5px;">Contraseña</label>
+        <input id="login-password" type="password" style="width:100%;border:1px solid #E4E1D8;border-radius:2px;padding:10px 12px;font-size:14px;box-sizing:border-box;" placeholder="Mínimo 6 caracteres">
+      </div>
+      <button id="login-submit-btn" onclick="submitLogin()" style="width:100%;background:#5B4FE0;border:1px solid #5B4FE0;color:#fff;font-weight:700;font-size:14.5px;padding:11px;border-radius:2px;cursor:pointer;margin-bottom:12px;">Iniciar sesión</button>
+      <div style="text-align:center;font-size:13px;color:#4E5860;">
+        <span id="login-toggle-text">¿No tenés cuenta?</span> <a href="javascript:void(0)" onclick="toggleLoginMode()" style="color:#463ACB;font-weight:700;text-decoration:none;" id="login-toggle-link">Creá una</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-shell" id="app-shell" style="display:none;">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main" id="main">
+    <div class="search-wrap" id="search-wrap" style="display:none;">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input id="search-input" placeholder="Buscar…" oninput="onSearch(this.value)">
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast" class="toast" style="display:none;"></div>
+<input type="file" id="restore-input" accept="application/json" style="display:none;" onchange="handleRestoreFile(this.files[0])">
+
+<script>
+/* ============================================================
+   CONFIGURACIÓN DE FIREBASE — un solo proyecto, compartido por
+   todos los que usan este sistema. Cada persona inicia sesión
+   con su propia cuenta y solo ve sus propios datos.
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyA51Prf9gS8Jkhosi2x87ud3pkqS6Ds9c",
+  authDomain: "fonoturnos-75e69.firebaseapp.com",
+  projectId: "fonoturnos-75e69",
+  storageBucket: "fonoturnos-75e69.firebasestorage.app",
+  messagingSenderId: "554474250359",
+  appId: "1:554474250359:web:5922fb0b7b27491a94e672"
+};
+if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+/* ================= ESTADO ================= */
+const PUBLIC_LINK_KEY = 'fonogestion_public_link';
+
+let currentUser = null;
+let loginMode = 'login'; // 'login' | 'signup'
+let unsubscribeTurnos = null;
+let unsubscribeSolicitudes = null;
+
+function col(name){ return db.collection('profesionales').doc(currentUser.uid).collection(name); }
+function perfilDoc(){ return db.collection('profesionales').doc(currentUser.uid); }
+
+let STATE = {
+  patients: [],
+  turnos: [],
+  solicitudes: [],
+  hc: [],
+  informes: [],
+  reuniones: [],
+  materiales: [],
+  disponibilidad: null,
+  tab: 'dashboard',
+  search: '',
+  selectedPatientId: null,
+  hcPatientId: null,
+  informePatientFilter: 'todos',
+  materialCategoria: 'todas',
+  patientFilter: 'todos',
+  turnoView: 'calendario',
+  turnoEstadoFilter: 'todos',
+  calYear: new Date().getFullYear(),
+  calMonth: new Date().getMonth()
+};
+
+/* ================= CONSTANTES ================= */
+const TIPOS_TURNO = ['Evaluación inicial', 'Sesión de tratamiento', 'Reevaluación', 'Devolución a familia', 'Interconsulta'];
+const ESTADOS_TURNO = ['pendiente', 'confirmado', 'realizado', 'cancelado', 'ausente'];
+const ESTADOS_PACIENTE = ['activo', 'pausa', 'alta', 'derivado'];
+const TIPOS_HC = ['Evaluación inicial', 'Sesión', 'Evolución', 'Alta', 'Derivación'];
+const TIPOS_INFORME = ['Informe de evaluación', 'Informe de evolución', 'Informe para institución educativa', 'Informe de alta', 'Resumen de historia clínica'];
+const ESTADOS_INFORME = ['borrador', 'finalizado'];
+const CATEGORIAS_MATERIAL = ['Articulación', 'Lenguaje comprensivo', 'Lenguaje expresivo', 'Voz', 'Deglución y alimentación', 'Fluidez', 'Motricidad orofacial', 'Cognición y atención', 'Lectoescritura'];
+const TIPOS_MATERIAL = ['Ejercicio', 'Plantilla', 'Consigna para casa', 'Video', 'Enlace', 'Protocolo de evaluación'];
+const OBRAS_SOCIALES = ['AAPM', 'ASUNT', 'AVALIAN', 'BOREAL', 'DASUTEN', 'GALENO', 'IOSFA', 'IPSSPT', 'MEDIFE', 'NOBIS SALUD', 'OSDE', 'OSDEPYM', 'OSDOP', 'OSECAC', 'OSFE', 'OSIAP', 'OSPE', 'OSPRERA', 'OSUTHGRA', 'Prensa', 'PREVENCION SALUD', 'SANCOR SALUD', 'SWISS MEDICAL'];
+
+const ESTADO_TURNO_STYLE = {
+  pendiente:  { label:'Pendiente',  css:'background:#FBF6E3;color:#8A6D1D;border-color:#EEDFA6;' },
+  confirmado: { label:'Confirmado', css:'background:#EEF6EF;color:#3F7A46;border-color:#C9E4CC;' },
+  realizado:  { label:'Realizado',  css:'background:#EEEDFE;color:#463ACB;border-color:#CECBF6;' },
+  cancelado:  { label:'Cancelado',  css:'background:#FDEDEC;color:#A32D2D;border-color:#F7C1C1;' },
+  ausente:    { label:'Ausente',    css:'background:#FBEEE8;color:#A94E30;border-color:#EFD0BE;' }
+};
+const ESTADO_PACIENTE_STYLE = {
+  activo:   { label:'Activo',    css:'background:#EEF6EF;color:#3F7A46;border-color:#C9E4CC;' },
+  pausa:    { label:'En pausa',  css:'background:#FBF6E3;color:#8A6D1D;border-color:#EEDFA6;' },
+  alta:     { label:'De alta',   css:'background:#EEEDFE;color:#463ACB;border-color:#CECBF6;' },
+  derivado: { label:'Derivado',  css:'background:#FBEEE8;color:#A94E30;border-color:#EFD0BE;' }
+};
+const ESTADO_INFORME_STYLE = {
+  borrador:   { label:'Borrador',   css:'background:#FBF6E3;color:#8A6D1D;border-color:#EEDFA6;' },
+  finalizado: { label:'Finalizado', css:'background:#EEF6EF;color:#3F7A46;border-color:#C9E4CC;' }
+};
+const ESTADO_REUNION_STYLE = {
+  pendiente: { label:'Pendiente',  css:'background:#FBF6E3;color:#8A6D1D;border-color:#EEDFA6;' },
+  realizada: { label:'Realizada',  css:'background:#EEF6EF;color:#3F7A46;border-color:#C9E4CC;' },
+  cancelada: { label:'Cancelada',  css:'background:#FDEDEC;color:#A32D2D;border-color:#F7C1C1;' }
+};
+
+/* ================= UTILIDADES ================= */
+const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+function esc(str){
+  return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function formatDate(dateStr){
+  if(!dateStr) return '-';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function formatDateLong(dateStr){
+  if(!dateStr) return '-';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
+}
+function calcEdad(fechaNacimiento){
+  if(!fechaNacimiento) return null;
+  const nac = new Date(fechaNacimiento + 'T00:00:00');
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if(m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad;
+}
+function pill(style, key){
+  const s = style[key];
+  if(!s) return '';
+  return `<span class="pill" style="${s.css}">${esc(s.label)}</span>`;
+}
+function patientName(id){
+  const p = STATE.patients.find(x => x.id === id);
+  return p ? p.nombre : '(paciente eliminado)';
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2600);
+}
+function optionsHtml(list, selected){
+  return list.map(v => `<option value="${esc(v)}" ${v === selected ? 'selected' : ''}>${esc(v)}</option>`).join('');
+}
+function styledOptionsHtml(styleMap, selected){
+  return Object.keys(styleMap).map(k => `<option value="${esc(k)}" ${k === selected ? 'selected' : ''}>${esc(styleMap[k].label)}</option>`).join('');
+}
+function patientOptionsHtml(selected){
+  const sorted = [...STATE.patients].sort((a,b) => a.nombre.localeCompare(b.nombre));
+  return `<option value="">— Elegir paciente —</option>` + sorted.map(p => `<option value="${p.id}" ${p.id === selected ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('');
+}
+function obraSocialOptionsHtml(selected){
+  const options = ['Ninguno', ...OBRAS_SOCIALES];
+  let extra = '';
+  if(selected && !OBRAS_SOCIALES.includes(selected)){
+    extra = `<option value="${esc(selected)}" selected>${esc(selected)}</option>`;
+  }
+  return extra + options.map(o => {
+    const value = o === 'Ninguno' ? '' : o;
+    return `<option value="${esc(value)}" ${!extra && value === (selected || '') ? 'selected' : ''}>${esc(o)}</option>`;
+  }).join('');
+}
+
+/* ================= PERSISTENCIA (localStorage) ================= */
+function saveAll(){
+  if(!currentUser) return;
+  const data = {
+    patients: STATE.patients, hc: STATE.hc,
+    informes: STATE.informes, reuniones: STATE.reuniones, materiales: STATE.materiales
+  };
+  perfilDoc().set(data, { merge:true }).catch(e => console.error('No se pudo guardar', e));
+}
+function loadAll(){
+  return perfilDoc().get().then(snap => {
+    if(snap.exists){
+      const data = snap.data();
+      STATE.patients = data.patients || [];
+      STATE.hc = data.hc || [];
+      STATE.informes = data.informes || [];
+      STATE.reuniones = data.reuniones || [];
+      STATE.materiales = data.materiales || [];
+    }else{
+      STATE.patients = []; STATE.hc = []; STATE.informes = []; STATE.reuniones = []; STATE.materiales = [];
+    }
+  }).catch(e => {
+    console.error('No se pudieron cargar los datos', e);
+    showToast('No se pudieron cargar tus datos. Revisá tu conexión.');
+  });
+}
+function checkOldLocalData(){
+  let raw = null;
+  try{ raw = localStorage.getItem('fonogestion_data_v1'); }catch(e){}
+  if(!raw) return;
+  let data;
+  try{ data = JSON.parse(raw); }catch(e){ return; }
+  const tieneDatos = (data.patients && data.patients.length) || (data.informes && data.informes.length) || (data.hc && data.hc.length);
+  if(!tieneDatos) return;
+  openModal(`
+    <div class="modal-overlay">
+      <div class="modal-box" style="max-width:420px;">
+        <div class="modal-head"><h3>Encontramos datos guardados</h3></div>
+        <div style="font-size:13.5px;line-height:1.6;color:var(--paper-dim);margin-bottom:18px;">Este navegador tiene pacientes/datos guardados de antes de activar el login. ¿Querés importarlos a tu cuenta nueva?</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn" onclick="closeModal()">No, empezar de cero</button>
+          <button class="btn btn-solid" onclick="importarDatosViejos()"><i class="fa-solid fa-file-import"></i>Importar</button>
+        </div>
+      </div>
+    </div>`);
+}
+function importarDatosViejos(){
+  let raw = null;
+  try{ raw = localStorage.getItem('fonogestion_data_v1'); }catch(e){}
+  if(!raw){ closeModal(); return; }
+  try{
+    const data = JSON.parse(raw);
+    STATE.patients = data.patients || [];
+    STATE.hc = data.hc || [];
+    STATE.informes = data.informes || [];
+    STATE.reuniones = data.reuniones || [];
+    STATE.materiales = data.materiales || [];
+    saveAll();
+    const turnosViejos = data.turnos || [];
+    turnosViejos.forEach(t => {
+      col('turnos').add({ pacienteId:t.pacienteId, fecha:t.fecha, hora:t.hora, duracion:t.duracion, tipo:t.tipo, estado:t.estado, notas:t.notas, creadoEn: Date.now() });
+    });
+    closeModal();
+    render();
+    showToast('Datos importados');
+  }catch(e){
+    alert('No se pudieron importar: ' + e.message);
+    closeModal();
+  }
+}
+
+/* ================= LOGIN Y CUENTA ================= */
+function toggleLoginMode(){
+  loginMode = loginMode === 'login' ? 'signup' : 'login';
+  document.getElementById('login-title').textContent = loginMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta';
+  document.getElementById('login-submit-btn').textContent = loginMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta';
+  document.getElementById('login-toggle-text').textContent = loginMode === 'login' ? '¿No tenés cuenta?' : '¿Ya tenés cuenta?';
+  document.getElementById('login-toggle-link').textContent = loginMode === 'login' ? 'Creá una' : 'Iniciá sesión';
+  document.getElementById('login-error').style.display = 'none';
+}
+function showLoginError(msg){
+  const box = document.getElementById('login-error');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+function submitLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if(!email || !password){ showLoginError('Completá el email y la contraseña.'); return; }
+  const btn = document.getElementById('login-submit-btn');
+  btn.disabled = true;
+  const accion = loginMode === 'login'
+    ? auth.signInWithEmailAndPassword(email, password)
+    : auth.createUserWithEmailAndPassword(email, password);
+  accion.catch(err => {
+    const mensajes = {
+      'auth/invalid-email': 'El email no es válido.',
+      'auth/user-not-found': 'No existe una cuenta con ese email.',
+      'auth/wrong-password': 'Contraseña incorrecta.',
+      'auth/email-already-in-use': 'Ya existe una cuenta con ese email. Iniciá sesión en vez de crear una nueva.',
+      'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
+      'auth/invalid-credential': 'Email o contraseña incorrectos.'
+    };
+    showLoginError(mensajes[err.code] || ('Error: ' + err.message));
+  }).finally(() => { btn.disabled = false; });
+}
+function logout(){
+  if(unsubscribeTurnos){ unsubscribeTurnos(); unsubscribeTurnos = null; }
+  if(unsubscribeSolicitudes){ unsubscribeSolicitudes(); unsubscribeSolicitudes = null; }
+  auth.signOut();
+}
+function initAfterLogin(){
+  loadAll().then(() => {
+    checkOldLocalData();
+    render();
+  });
+  if(unsubscribeTurnos) unsubscribeTurnos();
+  if(unsubscribeSolicitudes) unsubscribeSolicitudes();
+  unsubscribeTurnos = col('turnos').onSnapshot(snap => {
+    STATE.turnos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => { console.error('Error de sincronización de turnos', err); showToast('No se pudo sincronizar con la base de turnos online.'); });
+  unsubscribeSolicitudes = col('solicitudes').onSnapshot(snap => {
+    STATE.solicitudes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error('Error de sincronización de solicitudes', err));
+}
+
+/* ================= TURNOS ONLINE ================= */
+function slotKey(fecha, hora){ return `${fecha}_${hora}`; }
+function setOcupado(fecha, hora, origen, refId){
+  col('ocupados').doc(slotKey(fecha, hora)).set({ fecha, hora, origen, refId }).catch(err => console.error('No se pudo marcar el horario como ocupado', err));
+}
+function clearOcupado(fecha, hora){
+  col('ocupados').doc(slotKey(fecha, hora)).delete().catch(err => console.error('No se pudo liberar el horario', err));
+}
+function openDisponibilidadModal(){
+  col('configuracion').doc('disponibilidad').get().then(snap => {
+    const d = snap.exists ? snap.data() : { dias:[1,2,3,4,5], horaInicio:'09:00', horaFinal:'18:00', duracionTurno:45, diasVisibles:14 };
+    const diasLabels = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    openModal(`
+      <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+        <div class="modal-box wide">
+          <div class="modal-head"><h3>Disponibilidad para reservas online</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+          <div class="field"><label>Días de atención</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${diasLabels.map((l,idx) => `<label style="display:flex;align-items:center;gap:6px;border:1px solid var(--line-strong);padding:7px 12px;border-radius:20px;font-size:12.5px;cursor:pointer;">
+                <input type="checkbox" name="dia" value="${idx}" ${d.dias.includes(idx) ? 'checked' : ''} style="width:auto;">${l}
+              </label>`).join('')}
+            </div>
+          </div>
+          <div class="row-3">
+            <div class="field"><label>Hora de inicio</label><input type="time" id="disp-inicio" value="${d.horaInicio}"></div>
+            <div class="field"><label>Hora de fin</label><input type="time" id="disp-fin" value="${d.horaFinal}"></div>
+            <div class="field"><label>Duración del turno (min)</label><input type="number" id="disp-duracion" value="${d.duracionTurno}" min="10" step="5"></div>
+          </div>
+          <div class="field"><label>Días hacia adelante visibles para reservar</label><input type="number" id="disp-dias-visibles" value="${d.diasVisibles || 14}" min="1" max="60"></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+            <button type="button" class="btn btn-solid" onclick="saveDisponibilidad()"><i class="fa-solid fa-check"></i>Guardar</button>
+          </div>
+        </div>
+      </div>`);
+  }).catch(err => alert('Error al leer la configuración: ' + err.message));
+}
+function saveDisponibilidad(){
+  const dias = [...document.querySelectorAll('input[name="dia"]:checked')].map(el => Number(el.value));
+  if(dias.length === 0){ alert('Elegí al menos un día de atención.'); return; }
+  const data = {
+    dias,
+    horaInicio: document.getElementById('disp-inicio').value,
+    horaFinal: document.getElementById('disp-fin').value,
+    duracionTurno: Number(document.getElementById('disp-duracion').value) || 45,
+    diasVisibles: Number(document.getElementById('disp-dias-visibles').value) || 14
+  };
+  col('configuracion').doc('disponibilidad').set(data).then(() => {
+    closeModal();
+    showToast('Disponibilidad guardada');
+  }).catch(err => alert('Error al guardar: ' + err.message));
+}
+
+/* ================= MI PERFIL ================= */
+function renderPerfil(){
+  if(STATE.disponibilidad === null){
+    loadDisponibilidadPerfil();
+    return `<div class="main-head"><div><h1>Mi perfil</h1></div></div><div class="card"><div class="empty-row">Cargando disponibilidad…</div></div>`;
+  }
+  const d = STATE.disponibilidad;
+  const diasLabels = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const bloqueos = d.bloqueosFecha || [];
+  let baseLink = '';
+  try{ baseLink = localStorage.getItem(PUBLIC_LINK_KEY) || ''; }catch(e){}
+  const linkPersonalizado = baseLink ? (baseLink.replace(/\/?$/, '/') + '?pro=' + currentUser.uid) : '';
+  return `
+    <div class="main-head">
+      <div>
+        <h1>Mi perfil</h1>
+        <p class="sub">${esc(currentUser.email)}</p>
+      </div>
+      <button class="btn" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i>Cerrar sesión</button>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h3 style="margin:0 0 10px;font-size:15px;">Link de reservas para tus pacientes</h3>
+      <div class="field"><label>URL donde publicaste turnos-publico.html</label>
+        <div style="display:flex;gap:8px;">
+          <input id="perfil-base-link" value="${esc(baseLink)}" placeholder="https://tu-usuario.github.io/tu-repo">
+          <button class="btn" onclick="guardarBaseLinkPerfil()">Guardar</button>
+        </div>
+      </div>
+      ${linkPersonalizado ? `
+      <div style="margin-top:10px;background:#F8F7F4;border-radius:var(--radius);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:13px;word-break:break-all;">${esc(linkPersonalizado)}</span>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${esc(linkPersonalizado)}');showToast('Link copiado');"><i class="fa-solid fa-copy"></i>Copiar</button>
+      </div>` : '<p style="font-size:12.5px;color:var(--paper-dim);margin-top:8px;">Pegá la URL de tu página publicada para generar tu link personalizado.</p>'}
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h3 style="margin:0 0 14px;font-size:15px;">Días y horarios de atención</h3>
+      <div class="field">
+        <label>Días que atendés</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${diasLabels.map((l,idx) => `<label style="display:flex;align-items:center;gap:6px;border:1px solid var(--line-strong);padding:7px 12px;border-radius:20px;font-size:12.5px;cursor:pointer;">
+            <input type="checkbox" data-perfil-dia="${idx}" ${d.dias.includes(idx) ? 'checked' : ''} style="width:auto;">${l}
+          </label>`).join('')}
+        </div>
+      </div>
+      <div class="row-3">
+        <div class="field"><label>Hora de inicio</label><input type="time" id="perfil-inicio" value="${d.horaInicio}"></div>
+        <div class="field"><label>Hora de fin</label><input type="time" id="perfil-fin" value="${d.horaFinal}"></div>
+        <div class="field"><label>Duración del turno (min)</label><input type="number" id="perfil-duracion" value="${d.duracionTurno}" min="10" step="5"></div>
+      </div>
+      <div class="field"><label>Días hacia adelante visibles para reservar</label><input type="number" id="perfil-dias-visibles" value="${d.diasVisibles || 14}" min="1" max="60"></div>
+      <button class="btn btn-solid" onclick="guardarDisponibilidadPerfil()"><i class="fa-solid fa-check"></i>Guardar cambios</button>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 6px;font-size:15px;">Días no disponibles</h3>
+      <p style="font-size:12.5px;color:var(--paper-dim);margin:0 0 14px;">Vacaciones, feriados o cualquier día puntual en que no atendés.</p>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <input type="date" id="perfil-nuevo-bloqueo" style="max-width:200px;">
+        <button class="btn" onclick="agregarBloqueoPerfil()"><i class="fa-solid fa-plus"></i>Bloquear día</button>
+      </div>
+      ${bloqueos.length === 0 ? '<div class="empty-row">No tenés días bloqueados.</div>' : `
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        ${[...bloqueos].sort().map(f => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);">
+            <span style="font-size:13.5px;">${formatDateLong(f)}</span>
+            <button class="btn btn-sm btn-danger" onclick="quitarBloqueoPerfil('${f}')"><i class="fa-solid fa-trash" style="margin:0;"></i></button>
+          </div>`).join('')}
+      </div>`}
+    </div>
+  `;
+}
+function guardarBaseLinkPerfil(){
+  const val = document.getElementById('perfil-base-link').value.trim();
+  try{ localStorage.setItem(PUBLIC_LINK_KEY, val); }catch(e){}
+  render();
+  showToast('Link guardado');
+}
+function loadDisponibilidadPerfil(){
+  col('configuracion').doc('disponibilidad').get().then(snap => {
+    STATE.disponibilidad = snap.exists ? snap.data() : { dias:[1,2,3,4,5], horaInicio:'09:00', horaFinal:'18:00', duracionTurno:45, diasVisibles:14, bloqueosFecha:[] };
+    if(STATE.tab === 'perfil') render();
+  }).catch(err => {
+    console.error(err);
+    showToast('No se pudo cargar la disponibilidad.');
+  });
+}
+function guardarDisponibilidadPerfil(){
+  const dias = [...document.querySelectorAll('input[data-perfil-dia]:checked')].map(el => Number(el.dataset.perfilDia));
+  if(dias.length === 0){ alert('Elegí al menos un día de atención.'); return; }
+  const data = {
+    dias,
+    horaInicio: document.getElementById('perfil-inicio').value,
+    horaFinal: document.getElementById('perfil-fin').value,
+    duracionTurno: Number(document.getElementById('perfil-duracion').value) || 45,
+    diasVisibles: Number(document.getElementById('perfil-dias-visibles').value) || 14,
+    bloqueosFecha: STATE.disponibilidad.bloqueosFecha || []
+  };
+  col('configuracion').doc('disponibilidad').set(data).then(() => {
+    STATE.disponibilidad = data;
+    render();
+    showToast('Disponibilidad guardada');
+  }).catch(err => alert('Error al guardar: ' + err.message));
+}
+function agregarBloqueoPerfil(){
+  const input = document.getElementById('perfil-nuevo-bloqueo');
+  const fecha = input.value;
+  if(!fecha){ alert('Elegí una fecha.'); return; }
+  const actuales = STATE.disponibilidad.bloqueosFecha || [];
+  if(actuales.includes(fecha)){ showToast('Esa fecha ya estaba bloqueada'); return; }
+  const nuevos = [...actuales, fecha];
+  col('configuracion').doc('disponibilidad').set({ bloqueosFecha: nuevos }, { merge:true }).then(() => {
+    STATE.disponibilidad.bloqueosFecha = nuevos;
+    render();
+    showToast('Día bloqueado');
+  }).catch(err => alert('Error: ' + err.message));
+}
+function quitarBloqueoPerfil(fecha){
+  const nuevos = (STATE.disponibilidad.bloqueosFecha || []).filter(f => f !== fecha);
+  col('configuracion').doc('disponibilidad').set({ bloqueosFecha: nuevos }, { merge:true }).then(() => {
+    STATE.disponibilidad.bloqueosFecha = nuevos;
+    render();
+    showToast('Día desbloqueado');
+  }).catch(err => alert('Error: ' + err.message));
+}
+function aprobarSolicitud(id){
+  const s = STATE.solicitudes.find(x => x.id === id);
+  if(!s) return;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box">
+        <div class="modal-head"><h3>Confirmar turno</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;color:var(--paper-dim);margin-bottom:14px;">${esc(s.nombre)} · ${esc(s.telefono)} · ${formatDate(s.fecha)} · ${esc(s.hora)}${s.motivo ? ' · ' + esc(s.motivo) : ''}</div>
+        <div class="field"><label>Vincular con paciente existente</label><select id="aprobar-paciente-select">${patientOptionsHtml('')}</select></div>
+        <div style="text-align:center;color:var(--paper-dim);font-size:12px;margin:12px 0;">— o —</div>
+        <button type="button" class="btn" style="width:100%;justify-content:center;" onclick="crearPacienteDesdeSolicitud('${s.id}')"><i class="fa-solid fa-user-plus"></i>Crear paciente nuevo con estos datos</button>
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+          <button type="button" class="btn btn-solid" onclick="confirmarSolicitudConPaciente('${s.id}')"><i class="fa-solid fa-check"></i>Confirmar turno</button>
+        </div>
+      </div>
+    </div>`);
+}
+function confirmarSolicitudConPaciente(id){
+  const s = STATE.solicitudes.find(x => x.id === id);
+  const sel = document.getElementById('aprobar-paciente-select');
+  const pacienteId = sel ? sel.value : '';
+  if(!s || !pacienteId){ alert('Elegí un paciente o creá uno nuevo.'); return; }
+  crearTurnoDesdeSolicitud(s, pacienteId);
+}
+function crearPacienteDesdeSolicitud(id){
+  const s = STATE.solicitudes.find(x => x.id === id);
+  if(!s) return;
+  const nuevoPaciente = {
+    id: genId(), nombre:s.nombre, fechaNacimiento:'', dni:'', telefono:s.telefono, email:'', obraSocial:'', nAfiliado:'',
+    motivoConsulta:s.motivo || '', diagnostico:'', fechaIngreso: todayStr(), estado:'activo', notas:'Paciente creado automáticamente desde una reserva online.'
+  };
+  STATE.patients.push(nuevoPaciente);
+  saveAll();
+  crearTurnoDesdeSolicitud(s, nuevoPaciente.id);
+}
+function crearTurnoDesdeSolicitud(s, pacienteId){
+  const turnoData = {
+    pacienteId, fecha:s.fecha, hora:s.hora, duracion: s.duracion || 45, tipo:'Sesión de tratamiento',
+    estado:'confirmado', notas: s.motivo ? `Solicitado online. Motivo: ${s.motivo}` : 'Solicitado online.'
+  };
+  col('turnos').add({ ...turnoData, creadoEn: Date.now() }).then(docRef => {
+    setOcupado(s.fecha, s.hora, 'turno', docRef.id);
+    return col('solicitudes').doc(s.id).delete();
+  }).then(() => {
+    closeModal();
+    render();
+    showToast('Turno confirmado');
+  }).catch(err => alert('Error al confirmar el turno: ' + err.message));
+}
+function rechazarSolicitud(id){
+  const s = STATE.solicitudes.find(x => x.id === id);
+  if(!s) return;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box" style="max-width:380px;">
+        <div class="modal-head"><h3>Rechazar solicitud</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;line-height:1.6;color:var(--paper-dim);margin-bottom:18px;">¿Rechazar la solicitud de <b style="color:var(--ink);">${esc(s.nombre)}</b> para el ${formatDate(s.fecha)} a las ${esc(s.hora)}? El horario vuelve a estar disponible.</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-danger" onclick="rechazarSolicitudConfirmado('${id}')">Rechazar</button>
+        </div>
+      </div>
+    </div>`);
+}
+function rechazarSolicitudConfirmado(id){
+  const s = STATE.solicitudes.find(x => x.id === id);
+  if(!s) return;
+  closeModal();
+  col('solicitudes').doc(id).delete().then(() => {
+    clearOcupado(s.fecha, s.hora);
+    render();
+    showToast('Solicitud rechazada, el horario vuelve a estar libre');
+  }).catch(err => alert('Error: ' + err.message));
+}
+function seedData(){
+  const p1 = genId(), p2 = genId(), p3 = genId();
+  STATE.patients = [
+    { id:p1, nombre:'Valentina Rojas', fechaNacimiento:'2019-03-14', dni:'', telefono:'381-555-1122', email:'', obraSocial:'OSDE', nAfiliado:'', motivoConsulta:'Retraso del lenguaje expresivo', diagnostico:'TEL expresivo', fechaIngreso:'2026-03-02', estado:'activo', notas:'Le gustan los cuentos con animales.' },
+    { id:p2, nombre:'Tomás Ibáñez', fechaNacimiento:'2015-11-02', dni:'', telefono:'381-555-8890', email:'', obraSocial:'PAMI', nAfiliado:'', motivoConsulta:'Disfluencia (tartamudez)', diagnostico:'Tartamudez leve a moderada', fechaIngreso:'2026-05-20', estado:'activo', notas:'' },
+    { id:p3, nombre:'Martina Sosa', fechaNacimiento:'2011-07-22', dni:'', telefono:'381-555-3344', email:'', obraSocial:'SWISS MEDICAL', nAfiliado:'', motivoConsulta:'Dislalia de la /r/', diagnostico:'Dislalia funcional', fechaIngreso:'2025-09-10', estado:'alta', notas:'Externación con buen pronóstico.' }
+  ];
+  const t = todayStr();
+  STATE.turnos = [
+    { id:genId(), pacienteId:p1, fecha:t, hora:'09:00', duracion:45, tipo:'Sesión de tratamiento', estado:'confirmado', notas:'' },
+    { id:genId(), pacienteId:p2, fecha:t, hora:'10:30', duracion:45, tipo:'Sesión de tratamiento', estado:'pendiente', notas:'' },
+    { id:genId(), pacienteId:p3, fecha:addDaysStr(t, 2), hora:'11:15', duracion:30, tipo:'Devolución a familia', estado:'pendiente', notas:'' }
+  ];
+  STATE.hc = [
+    { id:genId(), pacienteId:p1, fecha:'2026-03-02', tipo:'Evaluación inicial', texto:'Se observa vocabulario reducido para la edad. Buena comprensión de consignas simples.', profesional:'', orden:0 },
+    { id:genId(), pacienteId:p1, fecha:'2026-04-10', tipo:'Evolución', texto:'Aumento de vocabulario espontáneo. Comienza a combinar dos palabras.', profesional:'', orden:1 }
+  ];
+  STATE.informes = [
+    { id:genId(), pacienteId:p3, titulo:'Informe de alta - Martina Sosa', tipo:'Informe de alta', fecha:'2026-08-01', estado:'finalizado', contenido:'Se otorga el alta fonoaudiológica luego de lograr la articulación correcta del fonema /r/ en todas las posiciones y contextos.' }
+  ];
+  STATE.reuniones = [
+    { id:genId(), titulo:'Reunión de equipo interdisciplinario', fecha:addDaysStr(t,3), hora:'14:00', modalidad:'presencial', lugar:'Consultorio', participantes:'Psicopedagoga, Terapista ocupacional', estado:'pendiente', notas:'' }
+  ];
+  STATE.materiales = [
+    { id:genId(), titulo:'Tarjetas de fonema /r/', categoria:'Articulación', tipo:'Ejercicio', edadRecomendada:'5-9 años', descripcion:'Set de tarjetas con palabras que contienen /r/ en posición inicial, media y final.', enlace:'' },
+    { id:genId(), titulo:'Consigna de respiración diafragmática', categoria:'Voz', tipo:'Consigna para casa', edadRecomendada:'Todas las edades', descripcion:'Ejercicio guiado de respiración para trabajar en casa entre sesiones.', enlace:'' }
+  ];
+}
+function addDaysStr(dateStr, n){
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function downloadBackup(){
+  const data = {
+    patients: STATE.patients, turnos: STATE.turnos, hc: STATE.hc,
+    informes: STATE.informes, reuniones: STATE.reuniones, materiales: STATE.materiales
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `fonogestion-backup-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function openRestoreFile(){ document.getElementById('restore-input').click(); }
+function handleRestoreFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const data = JSON.parse(e.target.result);
+      STATE.patients = data.patients || [];
+      STATE.hc = data.hc || [];
+      STATE.informes = data.informes || [];
+      STATE.reuniones = data.reuniones || [];
+      STATE.materiales = data.materiales || [];
+      saveAll();
+      (data.turnos || []).forEach(t => {
+        col('turnos').add({ pacienteId:t.pacienteId, fecha:t.fecha, hora:t.hora, duracion:t.duracion, tipo:t.tipo, estado:t.estado, notas:t.notas || '', creadoEn: Date.now() });
+      });
+      render();
+      showToast('Backup restaurado');
+    }catch(err){
+      alert('El archivo no es un backup válido.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ================= NAVEGACIÓN ================= */
+function goTab(tab){
+  STATE.tab = tab;
+  STATE.selectedPatientId = null;
+  STATE.search = '';
+  render();
+}
+function onSearch(val){
+  STATE.search = val;
+  render(true);
+}
+
+function renderSidebar(){
+  const hoy = todayStr();
+  const turnosHoy = STATE.turnos.filter(t => t.fecha === hoy && t.estado !== 'cancelado').length;
+  const item = (tab, icon, label, dot) => `
+    <div class="nav-item ${STATE.tab === tab ? 'active' : ''}" onclick="goTab('${tab}')">
+      <i class="fa-solid ${icon}"></i> ${label} ${dot ? '<span class="dot"></span>' : ''}
+    </div>`;
+  document.getElementById('sidebar').innerHTML = `
+    <div class="sidebar-brand"><i class="fa-solid fa-comment-medical"></i> FonoGestión</div>
+    <div class="nav-group">
+      <div class="nav-group-label">Principal</div>
+      ${item('dashboard', 'fa-gauge', 'Dashboard')}
+      ${item('turnos', 'fa-calendar-check', 'Turnos', turnosHoy > 0)}
+      ${item('pacientes', 'fa-users', 'Pacientes')}
+      ${item('historia', 'fa-notes-medical', 'Historia clínica')}
+      ${item('informes', 'fa-file-lines', 'Informes')}
+      ${item('reuniones', 'fa-people-group', 'Reuniones')}
+      ${item('material', 'fa-book-open', 'Material de trabajo')}
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Configuración</div>
+      ${item('perfil', 'fa-id-badge', 'Mi perfil')}
+    </div>
+    <div class="sidebar-foot">
+      <div class="agname">${STATE.patients.length} pacientes cargados</div>
+      <div>${turnosHoy} turno${turnosHoy === 1 ? '' : 's'} hoy</div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);cursor:pointer;" onclick="downloadBackup()">
+        <i class="fa-solid fa-download" style="margin-right:6px;"></i>Descargar backup
+      </div>
+      <div style="margin-top:8px;cursor:pointer;" onclick="openRestoreFile()">
+        <i class="fa-solid fa-upload" style="margin-right:6px;"></i>Restaurar backup
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--paper-dim);opacity:.8;">Los datos se guardan en este navegador.</div>
+    </div>
+  `;
+}
+
+function render(skipSearchSync){
+  renderSidebar();
+  let html = '';
+  if(STATE.tab === 'dashboard') html = renderDashboard();
+  else if(STATE.tab === 'turnos') html = renderTurnos();
+  else if(STATE.tab === 'pacientes') html = STATE.selectedPatientId ? renderPacienteDetail() : renderPacientesList();
+  else if(STATE.tab === 'historia') html = renderHistoriaClinica();
+  else if(STATE.tab === 'informes') html = renderInformes();
+  else if(STATE.tab === 'reuniones') html = renderReuniones();
+  else if(STATE.tab === 'material') html = renderMaterial();
+  else if(STATE.tab === 'perfil') html = renderPerfil();
+  document.getElementById('content').innerHTML = html;
+
+  if(STATE.tab === 'dashboard') initDashboardChart();
+
+  const searchWrap = document.getElementById('search-wrap');
+  const showSearch = (STATE.tab === 'pacientes' && !STATE.selectedPatientId) || STATE.tab === 'material';
+  searchWrap.style.display = showSearch ? 'block' : 'none';
+  if(showSearch){
+    document.getElementById('search-input').placeholder = STATE.tab === 'pacientes' ? 'Buscar paciente por nombre o diagnóstico…' : 'Buscar material por título o descripción…';
+  }
+  if(!skipSearchSync && showSearch){
+    const input = document.getElementById('search-input');
+    if(input.value !== STATE.search) input.value = STATE.search;
+  }
+}
+
+/* ================= MODALES ================= */
+function closeModal(){ document.getElementById('modal-root').innerHTML = ''; }
+function openModal(html){ document.getElementById('modal-root').innerHTML = html; }
+function confirmDelete(msg, fnName, id){
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box" style="max-width:380px;">
+        <div class="modal-head"><h3>Confirmar</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;line-height:1.6;color:var(--paper-dim);margin-bottom:18px;">${esc(msg)}</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-danger" onclick="${fnName}('${id}')">Eliminar</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+/* ================= DASHBOARD ================= */
+function renderDashboard(){
+  const hoy = todayStr();
+  const pacientesActivos = STATE.patients.filter(p => p.estado === 'activo').length;
+  const turnosHoy = STATE.turnos.filter(t => t.fecha === hoy && t.estado !== 'cancelado');
+  const en7dias = addDaysStr(hoy, 7);
+  const turnosSemana = STATE.turnos.filter(t => t.fecha >= hoy && t.fecha <= en7dias && t.estado !== 'cancelado');
+  const informesBorrador = STATE.informes.filter(i => i.estado === 'borrador').length;
+
+  const proximos = [...STATE.turnos]
+    .filter(t => t.fecha >= hoy && t.estado !== 'cancelado')
+    .sort((a,b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora))
+    .slice(0, 6);
+
+  const proximasReuniones = [...STATE.reuniones]
+    .filter(r => r.fecha >= hoy && r.estado !== 'cancelada')
+    .sort((a,b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora))
+    .slice(0, 4);
+
+  return `
+    <div class="main-head">
+      <div><h1>Dashboard</h1><p class="sub">Resumen general del consultorio, ${formatDateLong(hoy)}.</p></div>
+      <button class="btn btn-solid" onclick="openTurnoModal()"><i class="fa-solid fa-plus"></i>Nuevo turno</button>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="lbl">Pacientes activos</div><div class="val brass">${pacientesActivos}</div></div>
+      <div class="kpi"><div class="lbl">Turnos hoy</div><div class="val sage">${turnosHoy.length}</div></div>
+      <div class="kpi"><div class="lbl">Turnos próx. 7 días</div><div class="val">${turnosSemana.length}</div></div>
+      <div class="kpi"><div class="lbl">Informes en borrador</div><div class="val brick">${informesBorrador}</div></div>
+    </div>
+
+    <div class="row-2" style="align-items:flex-start;">
+      <div class="card">
+        <h3 style="margin:0 0 14px;font-size:15px;">Próximos turnos</h3>
+        ${proximos.length === 0 ? '<div class="empty-row">No hay turnos próximos.</div>' : proximos.map(t => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);">
+            <div>
+              <div style="font-weight:700;font-size:13.5px;">${esc(patientName(t.pacienteId))}</div>
+              <div style="font-size:12px;color:var(--paper-dim);">${formatDate(t.fecha)} · ${esc(t.hora)} · ${esc(t.tipo)}</div>
+            </div>
+            ${pill(ESTADO_TURNO_STYLE, t.estado)}
+          </div>`).join('')}
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 14px;font-size:15px;">Próximas reuniones</h3>
+        ${proximasReuniones.length === 0 ? '<div class="empty-row">No hay reuniones próximas.</div>' : proximasReuniones.map(r => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);">
+            <div>
+              <div style="font-weight:700;font-size:13.5px;">${esc(r.titulo)}</div>
+              <div style="font-size:12px;color:var(--paper-dim);">${formatDate(r.fecha)} · ${esc(r.hora)} · ${esc(r.modalidad)}</div>
+            </div>
+            ${pill(ESTADO_REUNION_STYLE, r.estado)}
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3 style="margin:0 0 14px;font-size:15px;">Turnos realizados por semana (últimas 6 semanas)</h3>
+      <canvas id="dashboard-chart" height="80"></canvas>
+    </div>
+  `;
+}
+function initDashboardChart(){
+  const canvas = document.getElementById('dashboard-chart');
+  if(!canvas || typeof Chart === 'undefined') return;
+  const weeks = [];
+  const counts = [];
+  const now = new Date();
+  for(let i = 5; i >= 0; i--){
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay() - (i * 7));
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const startStr = start.toISOString().slice(0,10);
+    const endStr = end.toISOString().slice(0,10);
+    weeks.push(`${start.getDate()}/${start.getMonth()+1}`);
+    counts.push(STATE.turnos.filter(t => t.fecha >= startStr && t.fecha <= endStr && t.estado === 'realizado').length);
+  }
+  if(window._dashChart) window._dashChart.destroy();
+  window._dashChart = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: { labels: weeks, datasets: [{ label:'Turnos realizados', data: counts, backgroundColor:'#5B4FE0', borderRadius:2 }] },
+    options: { plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } }
+  });
+}
+
+/* ================= TURNOS ================= */
+function setTurnoView(v){ STATE.turnoView = v; render(); }
+function calPrev(){ STATE.calMonth--; if(STATE.calMonth < 0){ STATE.calMonth = 11; STATE.calYear--; } render(); }
+function calNext(){ STATE.calMonth++; if(STATE.calMonth > 11){ STATE.calMonth = 0; STATE.calYear++; } render(); }
+
+function renderTurnos(){
+  return `
+    <div class="main-head">
+      <div><h1>Turnos</h1><p class="sub">Agenda de sesiones y evaluaciones.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-solid" onclick="openTurnoModal()"><i class="fa-solid fa-plus"></i>Nuevo turno</button>
+      </div>
+    </div>
+    ${STATE.solicitudes.length > 0 ? `
+    <div class="card" style="margin-bottom:20px;border-color:#5B4FE0;">
+      <h3 style="margin:0 0 12px;font-size:15px;color:var(--brass-bright);"><i class="fa-solid fa-bell"></i> Solicitudes de turno online (${STATE.solicitudes.length})</h3>
+      ${[...STATE.solicitudes].sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora)).map(s => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-weight:700;font-size:13.5px;">${esc(s.nombre)} · ${esc(s.telefono)}</div>
+            <div style="font-size:12px;color:var(--paper-dim);">${formatDate(s.fecha)} · ${esc(s.hora)}${s.motivo ? ' · ' + esc(s.motivo) : ''}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm btn-solid" onclick="aprobarSolicitud('${s.id}')"><i class="fa-solid fa-check"></i>Aprobar</button>
+            <button class="btn btn-sm btn-danger" onclick="rechazarSolicitud('${s.id}')"><i class="fa-solid fa-xmark"></i>Rechazar</button>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+    <div class="toolbar">
+      <div class="view-toggle">
+        <div class="${STATE.turnoView === 'calendario' ? 'active' : ''}" onclick="setTurnoView('calendario')">Calendario</div>
+        <div class="${STATE.turnoView === 'lista' ? 'active' : ''}" onclick="setTurnoView('lista')">Lista</div>
+      </div>
+      ${STATE.turnoView === 'lista' ? `
+        <div class="toolbar-filters">
+          ${['todos', ...ESTADOS_TURNO].map(e => `<div class="filter-chip ${STATE.turnoEstadoFilter === e ? 'active' : ''}" onclick="setTurnoEstadoFilter('${e}')">${e === 'todos' ? 'Todos' : esc(ESTADO_TURNO_STYLE[e].label)}</div>`).join('')}
+        </div>` : ''}
+    </div>
+    ${STATE.turnoView === 'calendario' ? renderTurnosCalendario() : renderTurnosLista()}
+  `;
+}
+function setTurnoEstadoFilter(e){ STATE.turnoEstadoFilter = e; render(); }
+
+function renderTurnosLista(){
+  const hoy = todayStr();
+  let list = [...STATE.turnos].sort((a,b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  if(STATE.turnoEstadoFilter !== 'todos') list = list.filter(t => t.estado === STATE.turnoEstadoFilter);
+  if(list.length === 0) return `<div class="card"><div class="empty-row">No hay turnos para mostrar.</div></div>`;
+  return list.map(t => `
+    <div class="card item-card">
+      <div class="head" onclick="openTurnoModal('${t.id}')">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="name">${esc(patientName(t.pacienteId))}</span>
+            ${pill(ESTADO_TURNO_STYLE, t.estado)}
+            ${t.fecha === hoy ? '<span class="pill" style="background:#EEEDFE;color:#463ACB;border-color:#CECBF6;">Hoy</span>' : ''}
+          </div>
+          <div class="meta">${formatDate(t.fecha)} · ${esc(t.hora)} · ${t.duracion} min · ${esc(t.tipo)}</div>
+          ${t.notas ? `<div class="meta" style="margin-top:2px;">${esc(t.notas)}</div>` : ''}
+        </div>
+        <div class="item-actions">
+          <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmDelete('¿Eliminar este turno?','deleteTurno','${t.id}')"><i class="fa-solid fa-trash" style="margin:0;"></i></button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderTurnosCalendario(){
+  const year = STATE.calYear, month = STATE.calMonth;
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const todayIso = todayStr();
+  const monthLabel = first.toLocaleDateString('es-AR', { month:'long', year:'numeric' });
+
+  const cells = [];
+  for(let i = 0; i < startOffset; i++){
+    cells.push({ day: daysInPrevMonth - startOffset + 1 + i, out:true, iso:null });
+  }
+  for(let d = 1; d <= daysInMonth; d++){
+    const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({ day:d, out:false, iso });
+  }
+  while(cells.length % 7 !== 0){
+    cells.push({ day: cells.length - (startOffset + daysInMonth) + 1, out:true, iso:null });
+  }
+
+  const estadoColor = { pendiente:'#FBF6E3', confirmado:'#EEF6EF', realizado:'#EEEDFE', cancelado:'#FDEDEC', ausente:'#FBEEE8' };
+  const estadoText = { pendiente:'#8A6D1D', confirmado:'#3F7A46', realizado:'#463ACB', cancelado:'#A32D2D', ausente:'#A94E30' };
+
+  const dow = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+  return `
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calPrev()"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="cal-title">${monthLabel}</div>
+      <button class="cal-nav-btn" onclick="calNext()"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+    <div class="cal-grid">
+      ${dow.map(d => `<div class="cal-dow">${d}</div>`).join('')}
+      ${cells.map(c => {
+        const dayTurnos = c.iso ? STATE.turnos.filter(t => t.fecha === c.iso).sort((a,b) => a.hora.localeCompare(b.hora)) : [];
+        const shown = dayTurnos.slice(0, 3);
+        const extra = dayTurnos.length - shown.length;
+        return `<div class="cal-cell ${c.out ? 'out' : ''} ${c.iso === todayIso ? 'today' : ''}" onclick="${c.iso ? `openTurnoModal(null,'${c.iso}')` : ''}">
+          <div class="cal-daynum">${c.day}</div>
+          ${shown.map(t => `<div class="cal-block" style="background:${estadoColor[t.estado]};color:${estadoText[t.estado]};" onclick="event.stopPropagation();openTurnoModal('${t.id}')">${esc(t.hora)} ${esc(patientName(t.pacienteId))}</div>`).join('')}
+          ${extra > 0 ? `<div class="cal-more">+${extra} más</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function openTurnoModal(id, presetFecha){
+  const t = id ? STATE.turnos.find(x => x.id === id) : null;
+  const isNew = !t;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box">
+        <div class="modal-head"><h3>${isNew ? 'Nuevo turno' : 'Editar turno'}</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <form onsubmit="saveTurno(event,'${id || ''}')">
+          <div class="field"><label>Paciente</label><select name="pacienteId" required>${patientOptionsHtml(t ? t.pacienteId : '')}</select></div>
+          <div class="row-2">
+            <div class="field"><label>Fecha</label><input type="date" name="fecha" value="${t ? t.fecha : (presetFecha || todayStr())}" required></div>
+            <div class="field"><label>Hora</label><input type="time" name="hora" value="${t ? t.hora : '09:00'}" required></div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>Duración (min)</label><input type="number" name="duracion" min="10" step="5" value="${t ? t.duracion : 45}" required></div>
+            <div class="field"><label>Tipo de turno</label><select name="tipo">${optionsHtml(TIPOS_TURNO, t ? t.tipo : TIPOS_TURNO[1])}</select></div>
+          </div>
+          <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_TURNO_STYLE, t ? t.estado : 'pendiente')}</select></div>
+          <div class="field"><label>Notas</label><textarea name="notas" rows="3">${esc(t ? t.notas : '')}</textarea></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+            ${!isNew ? `<button type="button" class="btn btn-danger" onclick="closeModal();confirmDelete('¿Eliminar este turno?','deleteTurno','${t.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>` : '<span></span>'}
+            <button type="submit" class="btn btn-solid"><i class="fa-solid fa-check"></i>Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>`);
+}
+function saveTurno(ev, id){
+  ev.preventDefault();
+  const f = ev.target;
+  const data = {
+    pacienteId: f.pacienteId.value,
+    fecha: f.fecha.value,
+    hora: f.hora.value,
+    duracion: Number(f.duracion.value) || 45,
+    tipo: f.tipo.value,
+    estado: f.estado.value,
+    notas: f.notas.value.trim()
+  };
+  if(!data.pacienteId){ alert('Elegí un paciente.'); return; }
+
+  const previo = id ? STATE.turnos.find(x => x.id === id) : null;
+  const promesa = id
+    ? col('turnos').doc(id).set(data, { merge:true })
+    : col('turnos').add({ ...data, creadoEn: Date.now() });
+  closeModal();
+  promesa.then(docRef => {
+    const turnoId = id || (docRef && docRef.id);
+    if(previo && (previo.fecha !== data.fecha || previo.hora !== data.hora)){
+      clearOcupado(previo.fecha, previo.hora);
+    }
+    if(data.estado === 'cancelado'){
+      clearOcupado(data.fecha, data.hora);
+    }else{
+      setOcupado(data.fecha, data.hora, 'turno', turnoId);
+    }
+    showToast('Turno guardado');
+  }).catch(err => alert('Error al guardar en la nube: ' + err.message));
+}
+function deleteTurno(id){
+  const t = STATE.turnos.find(x => x.id === id);
+  closeModal();
+  col('turnos').doc(id).delete().then(() => {
+    if(t) clearOcupado(t.fecha, t.hora);
+    showToast('Turno eliminado');
+  }).catch(err => alert('Error al eliminar: ' + err.message));
+}
+
+/* ================= PACIENTES ================= */
+function setPatientFilter(f){ STATE.patientFilter = f; render(); }
+
+function filteredPatients(){
+  let list = [...STATE.patients];
+  if(STATE.patientFilter !== 'todos') list = list.filter(p => p.estado === STATE.patientFilter);
+  if(STATE.search.trim()){
+    const q = STATE.search.trim().toLowerCase();
+    list = list.filter(p => p.nombre.toLowerCase().includes(q) || (p.diagnostico || '').toLowerCase().includes(q));
+  }
+  return list.sort((a,b) => a.nombre.localeCompare(b.nombre));
+}
+
+function renderPacientesList(){
+  const list = filteredPatients();
+  return `
+    <div class="main-head">
+      <div><h1>Pacientes</h1><p class="sub">Legajo y datos de contacto de cada paciente.</p></div>
+      <button class="btn btn-solid" onclick="openPacienteModal()"><i class="fa-solid fa-plus"></i>Nuevo paciente</button>
+    </div>
+    <div class="toolbar">
+      <div class="toolbar-filters">
+        ${['todos', ...ESTADOS_PACIENTE].map(e => `<div class="filter-chip ${STATE.patientFilter === e ? 'active' : ''}" onclick="setPatientFilter('${e}')">${e === 'todos' ? 'Todos' : esc(ESTADO_PACIENTE_STYLE[e].label)}</div>`).join('')}
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Nombre</th><th>Edad</th><th>Diagnóstico</th><th>Obra social</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        ${list.length === 0 ? `<tr><td colspan="7" class="empty-row">No se encontraron pacientes.</td></tr>` : list.map(p => `
+          <tr class="clickable" onclick="openPacienteDetail('${p.id}')">
+            <td style="font-weight:700;">${esc(p.nombre)}</td>
+            <td>${calcEdad(p.fechaNacimiento) ?? '-'}</td>
+            <td>${esc(p.diagnostico || '-')}</td>
+            <td>${esc(p.obraSocial || 'Ninguno')}</td>
+            <td>${esc(p.telefono || '-')}</td>
+            <td>${pill(ESTADO_PACIENTE_STYLE, p.estado)}</td>
+            <td style="text-align:right;white-space:nowrap;">
+              <button class="btn btn-sm" style="border-color:#3F7A46;color:#3F7A46;" title="Contactar por WhatsApp" onclick="event.stopPropagation();openWhatsappPaciente('${p.id}')"><i class="fa-brands fa-whatsapp" style="margin:0;"></i></button>
+              <button class="btn btn-sm" style="margin-left:6px;" title="Cambiar estado" onclick="event.stopPropagation();openEstadoModal('${p.id}')"><i class="fa-solid fa-arrows-rotate" style="margin:0;"></i></button>
+              <button class="btn btn-sm" style="margin-left:6px;" title="Editar" onclick="event.stopPropagation();openPacienteModal('${p.id}')"><i class="fa-solid fa-pen" style="margin:0;"></i></button>
+              <button class="btn btn-sm btn-danger" style="margin-left:6px;" title="Eliminar" onclick="event.stopPropagation();confirmDelete('¿Eliminar a este paciente? También se perderán sus turnos, historia clínica e informes asociados.','deletePaciente','${p.id}')"><i class="fa-solid fa-trash" style="margin:0;"></i></button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+function openPacienteDetail(id){ STATE.selectedPatientId = id; render(); }
+
+function renderPacienteDetail(){
+  const p = STATE.patients.find(x => x.id === STATE.selectedPatientId);
+  if(!p){ STATE.selectedPatientId = null; return renderPacientesList(); }
+  const turnos = STATE.turnos.filter(t => t.pacienteId === p.id).sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  const hc = STATE.hc.filter(h => h.pacienteId === p.id).sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const informes = STATE.informes.filter(i => i.pacienteId === p.id);
+
+  return `
+    <div class="main-head">
+      <div>
+        <button class="btn btn-ghost" style="padding-left:0;margin-bottom:6px;" onclick="STATE.selectedPatientId=null;render();"><i class="fa-solid fa-arrow-left"></i>Volver a pacientes</button>
+        <h1>${esc(p.nombre)}</h1>
+        <p class="sub">${calcEdad(p.fechaNacimiento) ?? '-'} años · ${esc(p.diagnostico || 'Sin diagnóstico cargado')}</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" style="border-color:#3F7A46;color:#3F7A46;" onclick="openWhatsappPaciente('${p.id}')"><i class="fa-brands fa-whatsapp"></i>WhatsApp</button>
+        <button class="btn" onclick="openEstadoModal('${p.id}')"><i class="fa-solid fa-arrows-rotate"></i>Cambiar estado</button>
+        <button class="btn" onclick="openPacienteModal('${p.id}')"><i class="fa-solid fa-pen"></i>Editar</button>
+        <button class="btn btn-danger" onclick="confirmDelete('¿Eliminar a este paciente? También se perderán sus turnos, historia clínica e informes asociados.','deletePaciente','${p.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>
+      </div>
+    </div>
+
+    <div class="row-2" style="align-items:flex-start;margin-bottom:20px;">
+      <div class="card">
+        <h3 style="margin:0 0 14px;font-size:15px;">Datos de contacto</h3>
+        <div style="font-size:13.5px;line-height:2;">
+          <div><span style="color:var(--paper-dim);">Teléfono:</span> ${esc(p.telefono || '-')}</div>
+          <div><span style="color:var(--paper-dim);">Email:</span> ${esc(p.email || '-')}</div>
+          <div><span style="color:var(--paper-dim);">Fecha de nacimiento:</span> ${formatDate(p.fechaNacimiento)}</div>
+          <div><span style="color:var(--paper-dim);">Obra social:</span> ${esc(p.obraSocial || 'Ninguno')} ${p.nAfiliado ? `(N° ${esc(p.nAfiliado)})` : ''}</div>
+          <div><span style="color:var(--paper-dim);">Ingreso al consultorio:</span> ${formatDate(p.fechaIngreso)}</div>
+          <div><span style="color:var(--paper-dim);">Estado:</span> ${pill(ESTADO_PACIENTE_STYLE, p.estado)}</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 14px;font-size:15px;">Motivo de consulta y notas</h3>
+        <div style="font-size:13.5px;line-height:1.6;color:var(--ink);"><b>Motivo:</b> ${esc(p.motivoConsulta || '-')}</div>
+        <div style="font-size:13.5px;line-height:1.6;margin-top:8px;white-space:pre-wrap;">${esc(p.notas || 'Sin notas adicionales.')}</div>
+      </div>
+    </div>
+
+    <div class="row-2" style="align-items:flex-start;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;font-size:15px;">Turnos (${turnos.length})</h3>
+          <button class="btn btn-sm" onclick="openTurnoModalForPatient('${p.id}')"><i class="fa-solid fa-plus"></i>Nuevo</button>
+        </div>
+        ${turnos.length === 0 ? '<div class="empty-row">Sin turnos cargados.</div>' : turnos.slice(0,6).map(t => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;" onclick="openTurnoModal('${t.id}')">
+            <div style="font-size:13px;">${formatDate(t.fecha)} · ${esc(t.hora)} · ${esc(t.tipo)}</div>
+            ${pill(ESTADO_TURNO_STYLE, t.estado)}
+          </div>`).join('')}
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;font-size:15px;">Historia clínica (${hc.length})</h3>
+          <button class="btn btn-sm" onclick="openHcModal(null,'${p.id}')"><i class="fa-solid fa-plus"></i>Nueva nota</button>
+        </div>
+        ${hc.length === 0 ? '<div class="empty-row">Sin entradas cargadas.</div>' : hc.slice(0,4).map(h => `
+          <div style="padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;" onclick="openHcModal('${h.id}')">
+            <div style="font-size:12px;color:var(--paper-dim);">${formatDate(h.fecha)} · ${esc(h.tipo)}</div>
+            <div style="font-size:13px;margin-top:2px;">${esc((h.texto || '').slice(0,90))}${(h.texto || '').length > 90 ? '…' : ''}</div>
+          </div>`).join('')}
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="goToHistoriaFor('${p.id}')">Ver historia clínica completa <i class="fa-solid fa-arrow-right" style="margin:0 0 0 6px;"></i></button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;font-size:15px;">Informes (${informes.length})</h3>
+        <button class="btn btn-sm" onclick="openInformeModal(null,'${p.id}')"><i class="fa-solid fa-plus"></i>Nuevo informe</button>
+      </div>
+      ${informes.length === 0 ? '<div class="empty-row">Sin informes cargados.</div>' : informes.map(i => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;" onclick="openInformeModal('${i.id}')">
+          <div>
+            <div style="font-weight:700;font-size:13.5px;">${esc(i.titulo)}</div>
+            <div style="font-size:12px;color:var(--paper-dim);">${esc(i.tipo)} · ${formatDate(i.fecha)}</div>
+          </div>
+          ${pill(ESTADO_INFORME_STYLE, i.estado)}
+        </div>`).join('')}
+    </div>
+  `;
+}
+function openTurnoModalForPatient(pacienteId){
+  openTurnoModal(null);
+  setTimeout(() => {
+    const sel = document.querySelector('#modal-root select[name="pacienteId"]');
+    if(sel) sel.value = pacienteId;
+  }, 0);
+}
+function goToHistoriaFor(pacienteId){
+  STATE.hcPatientId = pacienteId;
+  STATE.selectedPatientId = null;
+  STATE.tab = 'historia';
+  render();
+}
+
+function openPacienteModal(id){
+  const p = id ? STATE.patients.find(x => x.id === id) : null;
+  const isNew = !p;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box wide">
+        <div class="modal-head"><h3>${isNew ? 'Nuevo paciente' : 'Editar paciente'}</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <form onsubmit="savePaciente(event,'${id || ''}')">
+          <div class="row-2">
+            <div class="field"><label>Nombre y apellido</label><input name="nombre" value="${esc(p ? p.nombre : '')}" required></div>
+            <div class="field"><label>Fecha de nacimiento</label><input type="date" name="fechaNacimiento" value="${p ? p.fechaNacimiento || '' : ''}"></div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>Teléfono</label><input name="telefono" value="${esc(p ? p.telefono : '')}"></div>
+            <div class="field"><label>Email</label><input type="email" name="email" value="${esc(p ? p.email : '')}"></div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>Obra social</label><select name="obraSocial">${obraSocialOptionsHtml(p ? p.obraSocial : '')}</select></div>
+            <div class="field"><label>N° de afiliado</label><input name="nAfiliado" value="${esc(p ? p.nAfiliado : '')}"></div>
+          </div>
+          <div class="field"><label>Motivo de consulta</label><input name="motivoConsulta" value="${esc(p ? p.motivoConsulta : '')}"></div>
+          <div class="row-2">
+            <div class="field"><label>Diagnóstico</label><input name="diagnostico" value="${esc(p ? p.diagnostico : '')}"></div>
+            <div class="field"><label>Fecha de ingreso</label><input type="date" name="fechaIngreso" value="${p ? p.fechaIngreso || '' : todayStr()}"></div>
+          </div>
+          <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_PACIENTE_STYLE, p ? p.estado : 'activo')}</select></div>
+          <div class="field"><label>Notas</label><textarea name="notas" rows="3">${esc(p ? p.notas : '')}</textarea></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+            <button type="submit" class="btn btn-solid"><i class="fa-solid fa-check"></i>Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>`);
+}
+function savePaciente(ev, id){
+  ev.preventDefault();
+  const f = ev.target;
+  const data = {
+    nombre: f.nombre.value.trim(),
+    fechaNacimiento: f.fechaNacimiento.value,
+    telefono: f.telefono.value.trim(),
+    email: f.email.value.trim(),
+    obraSocial: f.obraSocial.value.trim(),
+    nAfiliado: f.nAfiliado.value.trim(),
+    motivoConsulta: f.motivoConsulta.value.trim(),
+    diagnostico: f.diagnostico.value.trim(),
+    fechaIngreso: f.fechaIngreso.value,
+    estado: f.estado.value,
+    notas: f.notas.value.trim()
+  };
+  if(!data.nombre){ alert('Ingresá el nombre del paciente.'); return; }
+  if(id){
+    const p = STATE.patients.find(x => x.id === id);
+    Object.assign(p, data);
+  }else{
+    STATE.patients.push({ id: genId(), dni:'', ...data });
+  }
+  saveAll();
+  closeModal();
+  render();
+  showToast('Paciente guardado');
+}
+function deletePaciente(id){
+  const turnosDelPaciente = STATE.turnos.filter(x => x.pacienteId === id);
+  STATE.patients = STATE.patients.filter(x => x.id !== id);
+  STATE.hc = STATE.hc.filter(x => x.pacienteId !== id);
+  STATE.informes = STATE.informes.filter(x => x.pacienteId !== id);
+  STATE.selectedPatientId = null;
+  turnosDelPaciente.forEach(t => {
+    col('turnos').doc(t.id).delete().then(() => clearOcupado(t.fecha, t.hora)).catch(()=>{});
+  });
+  saveAll();
+  closeModal();
+  render();
+  showToast('Paciente eliminado');
+}
+function openEstadoModal(id){
+  const p = STATE.patients.find(x => x.id === id);
+  if(!p) return;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box" style="max-width:380px;">
+        <div class="modal-head"><h3>Cambiar estado</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;color:var(--paper-dim);margin-bottom:14px;">${esc(p.nombre)} · estado actual: ${pill(ESTADO_PACIENTE_STYLE, p.estado)}</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${ESTADOS_PACIENTE.map(e => `
+            <button type="button" class="btn ${e === p.estado ? 'btn-solid' : ''}" style="justify-content:flex-start;" onclick="changeEstadoPaciente('${p.id}','${e}')">
+              ${pill(ESTADO_PACIENTE_STYLE, e)} ${e === p.estado ? ' (actual)' : ''}
+            </button>`).join('')}
+        </div>
+      </div>
+    </div>`);
+}
+function changeEstadoPaciente(id, estado){
+  const p = STATE.patients.find(x => x.id === id);
+  if(!p) return;
+  p.estado = estado;
+  saveAll();
+  closeModal();
+  render();
+  showToast('Estado actualizado');
+}
+
+/* ================= HISTORIA CLÍNICA ================= */
+function setHcPatient(id){ STATE.hcPatientId = id || null; render(); }
+
+function renderHistoriaClinica(){
+  const options = `<option value="">— Elegir paciente —</option>` + [...STATE.patients].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p => `<option value="${p.id}" ${p.id === STATE.hcPatientId ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('');
+  if(!STATE.hcPatientId){
+    return `
+      <div class="main-head"><div><h1>Historia clínica</h1><p class="sub">Elegí un paciente para ver o cargar su historia clínica.</p></div></div>
+      <div class="card" style="max-width:420px;">
+        <div class="field"><label>Paciente</label><select onchange="setHcPatient(this.value)">${options}</select></div>
+      </div>`;
+  }
+  const p = STATE.patients.find(x => x.id === STATE.hcPatientId);
+  if(!p){ STATE.hcPatientId = null; return renderHistoriaClinica(); }
+  const entries = STATE.hc.filter(h => h.pacienteId === p.id).sort((a,b) => (a.orden ?? 0) - (b.orden ?? 0));
+
+  return `
+    <div class="main-head">
+      <div><h1>Historia clínica</h1><p class="sub">${esc(p.nombre)} · ${calcEdad(p.fechaNacimiento) ?? '-'} años</p></div>
+      <button class="btn btn-solid" onclick="openHcModal(null,'${p.id}')"><i class="fa-solid fa-plus"></i>Nueva entrada</button>
+    </div>
+    <div class="card" style="margin-bottom:20px;max-width:420px;">
+      <div class="field" style="margin:0;"><label>Cambiar de paciente</label><select onchange="setHcPatient(this.value)">${options}</select></div>
+    </div>
+    <div class="card">
+      ${entries.length === 0 ? '<div class="empty-row">Todavía no hay entradas en la historia clínica.</div>' : `
+      <div class="timeline">
+        ${entries.map(h => `
+          <div class="timeline-item">
+            <div class="timeline-date">${formatDateLong(h.fecha)} · ${esc(h.tipo)}</div>
+            <div class="timeline-body">${esc(h.texto)}</div>
+            <div style="margin-top:8px;">
+              <button class="btn btn-sm btn-ghost" onclick="openHcModal('${h.id}')"><i class="fa-solid fa-pen"></i>Editar</button>
+              <button class="btn btn-sm btn-ghost" onclick="confirmDelete('¿Eliminar esta entrada de la historia clínica?','deleteHc','${h.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>
+            </div>
+          </div>`).join('')}
+      </div>`}
+    </div>
+  `;
+}
+function openHcModal(id, pacienteId){
+  const h = id ? STATE.hc.find(x => x.id === id) : null;
+  const isNew = !h;
+  const pid = h ? h.pacienteId : (pacienteId || STATE.hcPatientId);
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box wide">
+        <div class="modal-head"><h3>${isNew ? 'Nueva entrada de historia clínica' : 'Editar entrada'}</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <form onsubmit="saveHc(event,'${id || ''}')">
+          <div class="field"><label>Paciente</label><select name="pacienteId" required>${patientOptionsHtml(pid)}</select></div>
+          <div class="row-2">
+            <div class="field"><label>Fecha</label><input type="date" name="fecha" value="${h ? h.fecha : todayStr()}" required></div>
+            <div class="field"><label>Tipo de entrada</label><select name="tipo">${optionsHtml(TIPOS_HC, h ? h.tipo : TIPOS_HC[1])}</select></div>
+          </div>
+          <div class="field"><label>Observaciones</label><textarea name="texto" rows="6" required>${esc(h ? h.texto : '')}</textarea></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+            ${!isNew ? `<button type="button" class="btn btn-danger" onclick="closeModal();confirmDelete('¿Eliminar esta entrada?','deleteHc','${h.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>` : '<span></span>'}
+            <button type="submit" class="btn btn-solid"><i class="fa-solid fa-check"></i>Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>`);
+}
+function saveHc(ev, id){
+  ev.preventDefault();
+  const f = ev.target;
+  const data = {
+    pacienteId: f.pacienteId.value,
+    fecha: f.fecha.value,
+    tipo: f.tipo.value,
+    texto: f.texto.value.trim()
+  };
+  if(!data.pacienteId){ alert('Elegí un paciente.'); return; }
+  if(id){
+    const h = STATE.hc.find(x => x.id === id);
+    Object.assign(h, data);
+  }else{
+    STATE.hc.push({ id: genId(), profesional:'', orden: STATE.hc.length, ...data });
+  }
+  STATE.hcPatientId = data.pacienteId;
+  saveAll();
+  closeModal();
+  render();
+  showToast('Historia clínica actualizada');
+}
+function deleteHc(id){
+  STATE.hc = STATE.hc.filter(x => x.id !== id);
+  saveAll();
+  closeModal();
+  render();
+  showToast('Entrada eliminada');
+}
+
+/* ================= INFORMES ================= */
+function setInformePatientFilter(v){ STATE.informePatientFilter = v; render(); }
+
+function renderInformes(){
+  let list = [...STATE.informes];
+  if(STATE.informePatientFilter !== 'todos') list = list.filter(i => i.pacienteId === STATE.informePatientFilter);
+  list.sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const patientOpts = `<option value="todos">Todos los pacientes</option>` + [...STATE.patients].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p => `<option value="${p.id}" ${STATE.informePatientFilter === p.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('');
+
+  return `
+    <div class="main-head">
+      <div><h1>Informes</h1><p class="sub">Informes de evaluación, evolución y alta.</p></div>
+      <button class="btn btn-solid" onclick="openInformeModal()"><i class="fa-solid fa-plus"></i>Nuevo informe</button>
+    </div>
+    <div class="toolbar">
+      <div class="field" style="margin:0;max-width:260px;"><select onchange="setInformePatientFilter(this.value)">${patientOpts}</select></div>
+    </div>
+    ${list.length === 0 ? `<div class="card"><div class="empty-row">No hay informes para mostrar.</div></div>` : list.map(i => `
+      <div class="card item-card">
+        <div class="head" onclick="openInformeModal('${i.id}')">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="name">${esc(i.titulo)}</span>
+              ${pill(ESTADO_INFORME_STYLE, i.estado)}
+            </div>
+            <div class="meta">${esc(i.tipo)} · ${esc(patientName(i.pacienteId))} · ${formatDate(i.fecha)}</div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-sm" style="border-color:#3F7A46;color:#3F7A46;" onclick="event.stopPropagation();sendInformeWhatsapp('${i.id}')"><i class="fa-brands fa-whatsapp"></i>Enviar por WhatsApp</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();printInforme('${i.id}')"><i class="fa-solid fa-print"></i>Imprimir</button>
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmDelete('¿Eliminar este informe?','deleteInforme','${i.id}')"><i class="fa-solid fa-trash" style="margin:0;"></i></button>
+          </div>
+        </div>
+      </div>`).join('')}
+  `;
+}
+function openInformeModal(id, pacienteId){
+  const i = id ? STATE.informes.find(x => x.id === id) : null;
+  const isNew = !i;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box wide">
+        <div class="modal-head"><h3>${isNew ? 'Nuevo informe' : 'Editar informe'}</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <form onsubmit="saveInforme(event,'${id || ''}')">
+          <div class="field"><label>Título</label><input name="titulo" value="${esc(i ? i.titulo : '')}" required></div>
+          <div class="row-2">
+            <div class="field"><label>Paciente</label><select name="pacienteId" required>${patientOptionsHtml(i ? i.pacienteId : pacienteId)}</select></div>
+            <div class="field"><label>Tipo de informe</label><select name="tipo">${optionsHtml(TIPOS_INFORME, i ? i.tipo : TIPOS_INFORME[0])}</select></div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>Fecha</label><input type="date" name="fecha" value="${i ? i.fecha : todayStr()}" required></div>
+            <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_INFORME_STYLE, i ? i.estado : 'borrador')}</select></div>
+          </div>
+          <div class="field"><label>Contenido</label><textarea name="contenido" rows="8" placeholder="Redactá aquí el cuerpo del informe…">${esc(i ? i.contenido : '')}</textarea></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;flex-wrap:wrap;">
+            <div style="display:flex;gap:8px;">
+              ${!isNew ? `<button type="button" class="btn btn-danger" onclick="closeModal();confirmDelete('¿Eliminar este informe?','deleteInforme','${i.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>` : ''}
+              ${!isNew ? `<button type="button" class="btn" style="border-color:#3F7A46;color:#3F7A46;" onclick="sendInformeWhatsapp('${i.id}')"><i class="fa-brands fa-whatsapp"></i>Enviar por WhatsApp</button>` : ''}
+            </div>
+            <button type="submit" class="btn btn-solid"><i class="fa-solid fa-check"></i>Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>`);
+}
+function saveInforme(ev, id){
+  ev.preventDefault();
+  const f = ev.target;
+  const data = {
+    titulo: f.titulo.value.trim(),
+    pacienteId: f.pacienteId.value,
+    tipo: f.tipo.value,
+    fecha: f.fecha.value,
+    estado: f.estado.value,
+    contenido: f.contenido.value.trim()
+  };
+  if(!data.pacienteId){ alert('Elegí un paciente.'); return; }
+  if(id){
+    const i = STATE.informes.find(x => x.id === id);
+    Object.assign(i, data);
+  }else{
+    STATE.informes.push({ id: genId(), ...data });
+  }
+  if(STATE.informePatientFilter !== 'todos' && STATE.informePatientFilter !== data.pacienteId){
+    STATE.informePatientFilter = 'todos';
+  }
+  saveAll();
+  closeModal();
+  render();
+  showToast('Informe guardado');
+}
+function deleteInforme(id){
+  STATE.informes = STATE.informes.filter(x => x.id !== id);
+  saveAll();
+  closeModal();
+  render();
+  showToast('Informe eliminado');
+}
+function printInforme(id){
+  const i = STATE.informes.find(x => x.id === id);
+  if(!i) return;
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>${esc(i.titulo)}</title>
+    <style>
+      body{font-family:Lato,Arial,sans-serif;color:#1C2B36;padding:40px;max-width:700px;margin:auto;}
+      h1{font-size:20px;margin-bottom:4px;}
+      .meta{color:#4E5860;font-size:13px;margin-bottom:24px;}
+      .content{font-size:14px;line-height:1.7;white-space:pre-wrap;}
+    </style></head><body>
+    <h1>${esc(i.titulo)}</h1>
+    <div class="meta">${esc(i.tipo)} · Paciente: ${esc(patientName(i.pacienteId))} · Fecha: ${formatDate(i.fecha)}</div>
+    <div class="content">${esc(i.contenido)}</div>
+    </body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+function buildInformePdf(i, p){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4' });
+  const marginX = 56;
+  let y = 64;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text(i.titulo || 'Informe', marginX, y);
+  y += 22;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(78, 88, 96);
+  const metaLine = `${i.tipo} · Paciente: ${p ? p.nombre : patientName(i.pacienteId)} · Fecha: ${formatDate(i.fecha)}`;
+  doc.text(metaLine, marginX, y);
+  y += 24;
+  doc.setDrawColor(228, 225, 216);
+  doc.line(marginX, y, 539, y);
+  y += 24;
+  doc.setFontSize(11.5);
+  doc.setTextColor(28, 43, 54);
+  const lines = doc.splitTextToSize(i.contenido || '', 483);
+  lines.forEach(line => {
+    if(y > 780){ doc.addPage(); y = 64; }
+    doc.text(line, marginX, y);
+    y += 16;
+  });
+  return doc;
+}
+function downloadInformePdf(id){
+  const i = STATE.informes.find(x => x.id === id);
+  if(!i) return null;
+  const p = STATE.patients.find(x => x.id === i.pacienteId);
+  const doc = buildInformePdf(i, p);
+  const filename = `Informe - ${p ? p.nombre : 'paciente'} - ${i.fecha}.pdf`;
+  doc.save(filename);
+  return { i, p, filename };
+}
+function cleanPhoneForWhatsapp(tel){
+  let digits = (tel || '').replace(/\D/g, '');
+  if(!digits) return '';
+  if(digits.length <= 11 && !digits.startsWith('549') && !digits.startsWith('54')){
+    digits = '549' + digits.replace(/^0/, '').replace(/^15/, '');
+  }
+  return digits;
+}
+function openWhatsappPaciente(id){
+  const p = STATE.patients.find(x => x.id === id);
+  if(!p) return;
+  if(!p.telefono){
+    alert('Este paciente no tiene un teléfono cargado. Agregalo en su ficha para poder contactarlo por WhatsApp.');
+    return;
+  }
+  const numero = cleanPhoneForWhatsapp(p.telefono);
+  if(!numero){
+    alert('El teléfono cargado no es válido.');
+    return;
+  }
+  window.open(`https://wa.me/${numero}`, '_blank');
+}
+function sendInformeWhatsapp(id){
+  const i = STATE.informes.find(x => x.id === id);
+  if(!i) return;
+  const p = STATE.patients.find(x => x.id === i.pacienteId);
+  if(!p || !p.telefono){
+    alert('Este paciente no tiene un teléfono cargado. Agregalo en su ficha para poder enviarle el informe por WhatsApp.');
+    return;
+  }
+  const numero = cleanPhoneForWhatsapp(p.telefono);
+  if(!numero){
+    alert('El teléfono cargado no es válido.');
+    return;
+  }
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box" style="max-width:400px;">
+        <div class="modal-head"><h3>Enviar por WhatsApp</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;line-height:1.6;color:var(--paper-dim);margin-bottom:10px;">Vas a enviar por WhatsApp a <b style="color:var(--ink);">${esc(p.nombre)}</b>:</div>
+        <div style="background:#F8F7F4;border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;">
+          <div style="font-weight:700;font-size:14px;">${esc(i.titulo)}</div>
+          <div style="font-size:12.5px;color:var(--paper-dim);margin-top:2px;">${esc(i.tipo)} · ${formatDate(i.fecha)}</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-solid" style="background:#3F7A46;border-color:#3F7A46;" onclick="confirmarEnvioWhatsapp('${id}')"><i class="fa-brands fa-whatsapp"></i>Confirmar y enviar</button>
+        </div>
+      </div>
+    </div>`);
+}
+function confirmarEnvioWhatsapp(id){
+  const i = STATE.informes.find(x => x.id === id);
+  if(!i) return;
+  const p = STATE.patients.find(x => x.id === i.pacienteId);
+  const numero = cleanPhoneForWhatsapp(p.telefono);
+  closeModal();
+  downloadInformePdf(id);
+  const mensaje = `Hola ${p.nombre}, te comparto tu informe "${i.titulo}". Te adjunto el PDF a continuación.`;
+  const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+  window.open(url, '_blank');
+  showToast('PDF descargado. Adjuntalo manualmente en el chat de WhatsApp que se abrió.');
+}
+
+/* ================= REUNIONES ================= */
+function renderReuniones(){
+  const list = [...STATE.reuniones].sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  return `
+    <div class="main-head">
+      <div><h1>Reuniones</h1><p class="sub">Reuniones de equipo, familias e interdisciplinarias.</p></div>
+      <button class="btn btn-solid" onclick="openReunionModal()"><i class="fa-solid fa-plus"></i>Nueva reunión</button>
+    </div>
+    ${list.length === 0 ? `<div class="card"><div class="empty-row">No hay reuniones cargadas.</div></div>` : list.map(r => `
+      <div class="card item-card">
+        <div class="head" onclick="openReunionModal('${r.id}')">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="name">${esc(r.titulo)}</span>
+              ${pill(ESTADO_REUNION_STYLE, r.estado)}
+            </div>
+            <div class="meta">${formatDate(r.fecha)} · ${esc(r.hora)} · ${esc(r.modalidad)}${r.lugar ? ' · ' + esc(r.lugar) : ''}</div>
+            ${r.participantes ? `<div class="meta" style="margin-top:2px;"><i class="fa-solid fa-user-group" style="margin-right:5px;color:var(--paper-dim);"></i>${esc(r.participantes)}</div>` : ''}
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmDelete('¿Eliminar esta reunión?','deleteReunion','${r.id}')"><i class="fa-solid fa-trash" style="margin:0;"></i></button>
+          </div>
+        </div>
+      </div>`).join('')}
+  `;
+}
+function openReunionModal(id){
+  const r = id ? STATE.reuniones.find(x => x.id === id) : null;
+  const isNew = !r;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box wide">
+        <div class="modal-head"><h3>${isNew ? 'Nueva reunión' : 'Editar reunión'}</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <form onsubmit="saveReunion(event,'${id || ''}')">
+          <div class="field"><label>Título</label><input name="titulo" value="${esc(r ? r.titulo : '')}" required></div>
+          <div class="row-3">
+            <div class="field"><label>Fecha</label><input type="date" name="fecha" value="${r ? r.fecha : todayStr()}" required></div>
+            <div class="field"><label>Hora</label><input type="time" name="hora" value="${r ? r.hora : '10:00'}" required></div>
+            <div class="field"><label>Modalidad</label><select name="modalidad">${optionsHtml(['presencial','virtual'], r ? r.modalidad : 'presencial')}</select></div>
+          </div>
+          <div class="field"><label>Lugar / enlace</label><input name="lugar" value="${esc(r ? r.lugar : '')}"></div>
+          <div class="field"><label>Participantes</label><input name="participantes" value="${esc(r ? r.participantes : '')}" placeholder="Separados por coma"></div>
+          <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_REUNION_STYLE, r ? r.estado : 'pendiente')}</select></div>
+          <div class="field"><label>Notas</label><textarea name="notas" rows="3">${esc(r ? r.notas : '')}</textarea></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+            ${!isNew ? `<button type="button" class="btn btn-danger" onclick="closeModal();confirmDelete('¿Eliminar esta reunión?','deleteReunion','${r.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>` : '<span></span>'}
+            <button type="submit" class="btn btn-solid"><i class="fa-solid fa-check"></i>Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>`);
+}
+function saveReunion(ev, id){
+  ev.preventDefault();
+  const f = ev.target;
+  const data = {
+    titulo: f.titulo.value.trim(),
+    fecha: f.fecha.value,
+    hora: f.hora.value,
+    modalidad: f.modalidad.value,
+    lugar: f.lugar.value.trim(),
+    participantes: f.participantes.value.trim(),
+    estado: f.estado.value,
+    notas: f.notas.value.trim()
+  };
+  if(id){
+    const r = STATE.reuniones.find(x => x.id === id);
+    Object.assign(r, data);
+  }else{
+    STATE.reuniones.push({ id: genId(), ...data });
+  }
+  saveAll();
+  closeModal();
+  render();
+  showToast('Reunión guardada');
+}
+function deleteReunion(id){
+  STATE.reuniones = STATE.reuniones.filter(x => x.id !== id);
+  saveAll();
+  closeModal();
+  render();
+  showToast('Reunión eliminada');
+}
+
+/* ================= MATERIAL DE TRABAJO ================= */
+function setMaterialCategoria(c){ STATE.materialCategoria = c; render(); }
+
+function filteredMateriales(){
+  let list = [...STATE.materiales];
+  if(STATE.materialCategoria !== 'todas') list = list.filter(m => m.categoria === STATE.materialCategoria);
+  if(STATE.search.trim()){
+    const q = STATE.search.trim().toLowerCase();
+    list = list.filter(m => m.titulo.toLowerCase().includes(q) || (m.descripcion || '').toLowerCase().includes(q));
+  }
+  return list.sort((a,b) => a.titulo.localeCompare(b.titulo));
+}
+
+function renderMaterial(){
+  const list = filteredMateriales();
+  return `
+    <div class="main-head">
+      <div><h1>Material de trabajo</h1><p class="sub">Ejercicios, plantillas y consignas para las sesiones.</p></div>
+      <button class="btn btn-solid" onclick="openMaterialModal()"><i class="fa-solid fa-plus"></i>Nuevo material</button>
+    </div>
+    <div class="toolbar">
+      <div class="toolbar-filters">
+        <div class="filter-chip ${STATE.materialCategoria === 'todas' ? 'active' : ''}" onclick="setMaterialCategoria('todas')">Todas</div>
+        ${CATEGORIAS_MATERIAL.map(c => `<div class="filter-chip ${STATE.materialCategoria === c ? 'active' : ''}" onclick="setMaterialCategoria('${c}')">${esc(c)}</div>`).join('')}
+      </div>
+    </div>
+    ${list.length === 0 ? `<div class="card"><div class="empty-row">No se encontraron materiales.</div></div>` : `
+    <div class="grid-cards">
+      ${list.map(m => `
+        <div class="material-card">
+          <div class="cat">${esc(m.categoria)}</div>
+          <div class="title">${esc(m.titulo)}</div>
+          <div class="desc">${esc(m.descripcion || '')}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="pill">${esc(m.tipo)}</span>
+            ${m.edadRecomendada ? `<span style="font-size:11.5px;color:var(--paper-dim);">${esc(m.edadRecomendada)}</span>` : ''}
+          </div>
+          ${m.enlace ? `<a href="${esc(m.enlace)}" target="_blank" rel="noopener" style="font-size:12.5px;color:var(--brass-bright);text-decoration:none;"><i class="fa-solid fa-arrow-up-right-from-square" style="margin-right:5px;"></i>Abrir enlace</a>` : ''}
+          <div class="item-actions" style="justify-content:flex-start;margin-top:4px;">
+            <button class="btn btn-sm btn-ghost" onclick="openMaterialModal('${m.id}')"><i class="fa-solid fa-pen"></i>Editar</button>
+            <button class="btn btn-sm btn-ghost" onclick="confirmDelete('¿Eliminar este material?','deleteMaterial','${m.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>
+          </div>
+        </div>`).join('')}
+    </div>`}
+  `;
+}
+function openMaterialModal(id){
+  const m = id ? STATE.materiales.find(x => x.id === id) : null;
+  const isNew = !m;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box wide">
+        <div class="modal-head"><h3>${isNew ? 'Nuevo material' : 'Editar material'}</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <form onsubmit="saveMaterial(event,'${id || ''}')">
+          <div class="field"><label>Título</label><input name="titulo" value="${esc(m ? m.titulo : '')}" required></div>
+          <div class="row-2">
+            <div class="field"><label>Categoría</label><select name="categoria">${optionsHtml(CATEGORIAS_MATERIAL, m ? m.categoria : CATEGORIAS_MATERIAL[0])}</select></div>
+            <div class="field"><label>Tipo</label><select name="tipo">${optionsHtml(TIPOS_MATERIAL, m ? m.tipo : TIPOS_MATERIAL[0])}</select></div>
+          </div>
+          <div class="field"><label>Edad recomendada</label><input name="edadRecomendada" value="${esc(m ? m.edadRecomendada : '')}" placeholder="Ej: 4-6 años"></div>
+          <div class="field"><label>Descripción</label><textarea name="descripcion" rows="4">${esc(m ? m.descripcion : '')}</textarea></div>
+          <div class="field"><label>Enlace (opcional)</label><input name="enlace" value="${esc(m ? m.enlace : '')}" placeholder="https://…"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+            ${!isNew ? `<button type="button" class="btn btn-danger" onclick="closeModal();confirmDelete('¿Eliminar este material?','deleteMaterial','${m.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>` : '<span></span>'}
+            <button type="submit" class="btn btn-solid"><i class="fa-solid fa-check"></i>Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>`);
+}
+function saveMaterial(ev, id){
+  ev.preventDefault();
+  const f = ev.target;
+  const data = {
+    titulo: f.titulo.value.trim(),
+    categoria: f.categoria.value,
+    tipo: f.tipo.value,
+    edadRecomendada: f.edadRecomendada.value.trim(),
+    descripcion: f.descripcion.value.trim(),
+    enlace: f.enlace.value.trim()
+  };
+  if(id){
+    const m = STATE.materiales.find(x => x.id === id);
+    Object.assign(m, data);
+  }else{
+    STATE.materiales.push({ id: genId(), ...data });
+  }
+  saveAll();
+  closeModal();
+  render();
+  showToast('Material guardado');
+}
+function deleteMaterial(id){
+  STATE.materiales = STATE.materiales.filter(x => x.id !== id);
+  saveAll();
+  closeModal();
+  render();
+  showToast('Material eliminado');
+}
+
+/* ================= INICIO ================= */
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+  if(user){
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-shell').style.display = '';
+    STATE.disponibilidad = null;
+    initAfterLogin();
+  }else{
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-shell').style.display = 'none';
+    if(unsubscribeTurnos){ unsubscribeTurnos(); unsubscribeTurnos = null; }
+    if(unsubscribeSolicitudes){ unsubscribeSolicitudes(); unsubscribeSolicitudes = null; }
+  }
+});
+document.getElementById('login-password').addEventListener('keydown', e => { if(e.key === 'Enter') submitLogin(); });
+</script>
+</body>
+</html>
