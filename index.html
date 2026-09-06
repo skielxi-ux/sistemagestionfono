@@ -261,6 +261,9 @@ let STATE = {
   patientFilter: 'todos',
   turnoView: 'calendario',
   turnoEstadoFilter: 'todos',
+  pagoPatientFilter: 'todos',
+  pagoEstadoFilter: 'todos',
+  pagoRango: 'mes',
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth()
 };
@@ -275,6 +278,12 @@ const ESTADOS_INFORME = ['borrador', 'finalizado'];
 const CATEGORIAS_MATERIAL = ['Articulación', 'Lenguaje comprensivo', 'Lenguaje expresivo', 'Voz', 'Deglución y alimentación', 'Fluidez', 'Motricidad orofacial', 'Cognición y atención', 'Lectoescritura'];
 const TIPOS_MATERIAL = ['Ejercicio', 'Plantilla', 'Consigna para casa', 'Video', 'Enlace', 'Protocolo de evaluación'];
 const OBRAS_SOCIALES = ['AAPM', 'ASUNT', 'AVALIAN', 'BOREAL', 'DASUTEN', 'GALENO', 'IOSFA', 'IPSSPT', 'MEDIFE', 'NOBIS SALUD', 'OSDE', 'OSDEPYM', 'OSDOP', 'OSECAC', 'OSFE', 'OSIAP', 'OSPE', 'OSPRERA', 'OSUTHGRA', 'Prensa', 'PREVENCION SALUD', 'SANCOR SALUD', 'SWISS MEDICAL'];
+const MEDIOS_PAGO = ['Efectivo', 'Transferencia', 'Mercado Pago', 'Tarjeta de débito', 'Tarjeta de crédito', 'Otro'];
+
+const ESTADO_PAGO_STYLE = {
+  pendiente: { label:'Pendiente de pago', css:'background:#FBF6E3;color:#8A6D1D;border-color:#EEDFA6;' },
+  pagado:    { label:'Pagado',            css:'background:#EEF6EF;color:#3F7A46;border-color:#C9E4CC;' }
+};
 
 const ESTADO_TURNO_STYLE = {
   pendiente:  { label:'Pendiente',  css:'background:#FBF6E3;color:#8A6D1D;border-color:#EEDFA6;' },
@@ -842,6 +851,7 @@ function renderSidebar(){
       ${item('dashboard', 'fa-gauge', 'Dashboard')}
       ${itemBadge('notificaciones', 'fa-bell', 'Notificaciones', STATE.solicitudes.length)}
       ${item('turnos', 'fa-calendar-check', 'Turnos', turnosHoy > 0)}
+      ${item('pagos', 'fa-sack-dollar', 'Pagos')}
       ${item('pacientes', 'fa-users', 'Pacientes')}
       ${item('historia', 'fa-notes-medical', 'Historia clínica')}
       ${item('informes', 'fa-file-lines', 'Informes')}
@@ -876,6 +886,7 @@ function render(skipSearchSync){
   let html = '';
   if(STATE.tab === 'dashboard') html = renderDashboard();
   else if(STATE.tab === 'turnos') html = renderTurnos();
+  else if(STATE.tab === 'pagos') html = renderPagos();
   else if(STATE.tab === 'notificaciones') html = renderNotificaciones();
   else if(STATE.tab === 'pacientes') html = STATE.selectedPatientId ? renderPacienteDetail() : renderPacientesList();
   else if(STATE.tab === 'historia') html = renderHistoriaClinica();
@@ -888,10 +899,17 @@ function render(skipSearchSync){
   if(STATE.tab === 'dashboard') initDashboardChart();
 
   const searchWrap = document.getElementById('search-wrap');
-  const showSearch = (STATE.tab === 'pacientes' && !STATE.selectedPatientId) || STATE.tab === 'material';
+  const showSearch = (STATE.tab === 'pacientes' && !STATE.selectedPatientId) || STATE.tab === 'material'
+    || (STATE.tab === 'historia' && !STATE.hcPatientId) || STATE.tab === 'informes';
   searchWrap.style.display = showSearch ? 'block' : 'none';
   if(showSearch){
-    document.getElementById('search-input').placeholder = STATE.tab === 'pacientes' ? 'Buscar paciente por nombre o diagnóstico…' : 'Buscar material por título o descripción…';
+    const placeholders = {
+      pacientes: 'Buscar paciente por nombre o diagnóstico…',
+      material: 'Buscar material por título o descripción…',
+      historia: 'Buscar paciente por nombre…',
+      informes: 'Buscar por paciente o título de informe…'
+    };
+    document.getElementById('search-input').placeholder = placeholders[STATE.tab] || 'Buscar…';
   }
   if(!skipSearchSync && showSearch){
     const input = document.getElementById('search-input');
@@ -1127,6 +1145,111 @@ function renderTurnosCalendario(){
   `;
 }
 
+/* ================= PAGOS ================= */
+function setPagoPatientFilter(v){ STATE.pagoPatientFilter = v; render(); }
+function setPagoEstadoFilter(v){ STATE.pagoEstadoFilter = v; render(); }
+function setPagoRango(v){ STATE.pagoRango = v; render(); }
+
+function turnosParaPagos(){
+  const hoy = new Date();
+  const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+  const finMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-31`;
+  let list = STATE.turnos.filter(t => t.estado !== 'cancelado');
+  if(STATE.pagoRango === 'mes') list = list.filter(t => t.fecha >= inicioMes && t.fecha <= finMes);
+  if(STATE.pagoPatientFilter !== 'todos') list = list.filter(t => t.pacienteId === STATE.pagoPatientFilter);
+  if(STATE.pagoEstadoFilter !== 'todos') list = list.filter(t => (t.estadoPago || 'pendiente') === STATE.pagoEstadoFilter);
+  return list.sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+}
+
+function renderPagos(){
+  const hoy = new Date();
+  const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+  const finMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-31`;
+  const turnosMes = STATE.turnos.filter(t => t.estado !== 'cancelado' && t.fecha >= inicioMes && t.fecha <= finMes);
+  const cobradoMes = turnosMes.filter(t => (t.estadoPago || 'pendiente') === 'pagado').reduce((s,t) => s + (t.monto || 0), 0);
+  const pendienteMes = turnosMes.filter(t => (t.estadoPago || 'pendiente') === 'pendiente').reduce((s,t) => s + (t.monto || 0), 0);
+  const pendienteTotal = STATE.turnos.filter(t => t.estado !== 'cancelado' && (t.estadoPago || 'pendiente') === 'pendiente').reduce((s,t) => s + (t.monto || 0), 0);
+  const cantSinCobrarMes = turnosMes.filter(t => (t.estadoPago || 'pendiente') === 'pendiente').length;
+
+  const list = turnosParaPagos();
+  const patientOpts = `<option value="todos">Todos los pacientes</option>` + [...STATE.patients].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p => `<option value="${p.id}" ${STATE.pagoPatientFilter === p.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('');
+  const fmtMoney = n => '$' + Number(n || 0).toLocaleString('es-AR');
+
+  return `
+    <div class="main-head">
+      <div><h1>Pagos</h1><p class="sub">Relevamiento de pagos de sesiones.</p></div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="lbl">Cobrado este mes</div><div class="val sage">${fmtMoney(cobradoMes)}</div></div>
+      <div class="kpi"><div class="lbl">Pendiente este mes</div><div class="val brick">${fmtMoney(pendienteMes)}</div></div>
+      <div class="kpi"><div class="lbl">Pendiente total</div><div class="val brick">${fmtMoney(pendienteTotal)}</div></div>
+      <div class="kpi"><div class="lbl">Sesiones sin cobrar (mes)</div><div class="val">${cantSinCobrarMes}</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar-filters">
+        <div class="filter-chip ${STATE.pagoRango === 'mes' ? 'active' : ''}" onclick="setPagoRango('mes')">Este mes</div>
+        <div class="filter-chip ${STATE.pagoRango === 'todos' ? 'active' : ''}" onclick="setPagoRango('todos')">Todos</div>
+        <div class="filter-chip ${STATE.pagoEstadoFilter === 'todos' ? 'active' : ''}" onclick="setPagoEstadoFilter('todos')">Todos los estados</div>
+        <div class="filter-chip ${STATE.pagoEstadoFilter === 'pendiente' ? 'active' : ''}" onclick="setPagoEstadoFilter('pendiente')">Pendiente</div>
+        <div class="filter-chip ${STATE.pagoEstadoFilter === 'pagado' ? 'active' : ''}" onclick="setPagoEstadoFilter('pagado')">Pagado</div>
+      </div>
+      <div class="field" style="margin:0;max-width:220px;"><select onchange="setPagoPatientFilter(this.value)">${patientOpts}</select></div>
+    </div>
+
+    <table>
+      <thead><tr><th>Paciente</th><th>Fecha</th><th>Tipo</th><th>Monto</th><th>Estado de pago</th><th>Medio</th><th></th></tr></thead>
+      <tbody>
+        ${list.length === 0 ? `<tr><td colspan="7" class="empty-row">No hay sesiones para mostrar.</td></tr>` : list.map(t => `
+          <tr>
+            <td style="font-weight:700;">${esc(patientName(t.pacienteId))}</td>
+            <td>${formatDate(t.fecha)} · ${esc(t.hora)}</td>
+            <td>${esc(t.tipo)}</td>
+            <td>${fmtMoney(t.monto)}</td>
+            <td>${pill(ESTADO_PAGO_STYLE, t.estadoPago || 'pendiente')}</td>
+            <td>${esc(t.medioPago || '-')}</td>
+            <td style="text-align:right;white-space:nowrap;">
+              ${(t.estadoPago || 'pendiente') === 'pendiente'
+                ? `<button class="btn btn-sm btn-solid" onclick="openPagoModal('${t.id}')"><i class="fa-solid fa-check"></i>Marcar pagado</button>`
+                : `<button class="btn btn-sm" onclick="marcarComoPendiente('${t.id}')"><i class="fa-solid fa-rotate-left"></i>Marcar pendiente</button>`}
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+function openPagoModal(id){
+  const t = STATE.turnos.find(x => x.id === id);
+  if(!t) return;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box" style="max-width:400px;">
+        <div class="modal-head"><h3>Registrar pago</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;color:var(--paper-dim);margin-bottom:14px;">${esc(patientName(t.pacienteId))} · ${formatDate(t.fecha)} · ${esc(t.hora)}</div>
+        <div class="field"><label>Monto cobrado</label><input type="number" id="pago-monto" min="0" step="1" value="${t.monto || ''}" placeholder="0"></div>
+        <div class="field"><label>Medio de pago</label><select id="pago-medio"><option value="">—</option>${optionsHtml(MEDIOS_PAGO, t.medioPago || '')}</select></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+          <button class="btn" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-solid" onclick="confirmarPago('${id}')"><i class="fa-solid fa-check"></i>Confirmar pago</button>
+        </div>
+      </div>
+    </div>`);
+}
+function confirmarPago(id){
+  const monto = Number(document.getElementById('pago-monto').value) || 0;
+  const medioPago = document.getElementById('pago-medio').value;
+  col('turnos').doc(id).set({ monto, medioPago, estadoPago:'pagado' }, { merge:true }).then(() => {
+    closeModal();
+    showToast('Pago registrado');
+  }).catch(err => alert('Error al guardar: ' + err.message));
+}
+function marcarComoPendiente(id){
+  col('turnos').doc(id).set({ estadoPago:'pendiente' }, { merge:true }).then(() => {
+    showToast('Marcado como pendiente');
+  }).catch(err => alert('Error al guardar: ' + err.message));
+}
+
 function openTurnoModal(id, presetFecha){
   const t = id ? STATE.turnos.find(x => x.id === id) : null;
   const isNew = !t;
@@ -1145,6 +1268,11 @@ function openTurnoModal(id, presetFecha){
             <div class="field"><label>Tipo de turno</label><select name="tipo">${optionsHtml(TIPOS_TURNO, t ? t.tipo : TIPOS_TURNO[1])}</select></div>
           </div>
           <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_TURNO_STYLE, t ? t.estado : 'pendiente')}</select></div>
+          <div class="row-3">
+            <div class="field"><label>Monto de la sesión</label><input type="number" name="monto" min="0" step="1" value="${t && t.monto ? t.monto : ''}" placeholder="0"></div>
+            <div class="field"><label>Estado de pago</label><select name="estadoPago">${styledOptionsHtml(ESTADO_PAGO_STYLE, t ? t.estadoPago : 'pendiente')}</select></div>
+            <div class="field"><label>Medio de pago</label><select name="medioPago"><option value="">—</option>${optionsHtml(MEDIOS_PAGO, t ? t.medioPago : '')}</select></div>
+          </div>
           <div class="field"><label>Notas</label><textarea name="notas" rows="3">${esc(t ? t.notas : '')}</textarea></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
             ${!isNew ? `<button type="button" class="btn btn-danger" onclick="closeModal();confirmDelete('¿Eliminar este turno?','deleteTurno','${t.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>` : '<span></span>'}
@@ -1164,6 +1292,9 @@ function saveTurno(ev, id){
     duracion: Number(f.duracion.value) || 45,
     tipo: f.tipo.value,
     estado: f.estado.value,
+    monto: Number(f.monto.value) || 0,
+    estadoPago: f.estadoPago.value,
+    medioPago: f.medioPago.value,
     notas: f.notas.value.trim()
   };
   if(!data.pacienteId){ alert('Elegí un paciente.'); return; }
@@ -1273,6 +1404,7 @@ function renderPacienteDetail(){
           <div><span style="color:var(--paper-dim);">Teléfono:</span> ${esc(p.telefono || '-')}</div>
           <div><span style="color:var(--paper-dim);">Email:</span> ${esc(p.email || '-')}</div>
           <div><span style="color:var(--paper-dim);">Fecha de nacimiento:</span> ${formatDate(p.fechaNacimiento)}</div>
+          ${p.nombreTutor ? `<div><span style="color:var(--paper-dim);">Padre/madre:</span> ${esc(p.nombreTutor)}</div>` : ''}
           <div><span style="color:var(--paper-dim);">Obra social:</span> ${esc(p.obraSocial || 'Ninguno')} ${p.nAfiliado ? `(N° ${esc(p.nAfiliado)})` : ''}</div>
           <div><span style="color:var(--paper-dim);">Ingreso al consultorio:</span> ${formatDate(p.fechaIngreso)}</div>
           <div><span style="color:var(--paper-dim);">Estado:</span> <span style="cursor:pointer;" onclick="openEstadoModal('${p.id}')">${pill(ESTADO_PACIENTE_STYLE, p.estado)}</span></div>
@@ -1350,9 +1482,10 @@ function openPacienteModal(id){
         <div class="modal-head"><h3>${isNew ? 'Nuevo paciente' : 'Editar paciente'}</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
         <form onsubmit="savePaciente(event,'${id || ''}')">
           <div class="row-2">
-            <div class="field"><label>Nombre y apellido</label><input name="nombre" value="${esc(p ? p.nombre : '')}" required></div>
+            <div class="field"><label>Nombre y apellido de paciente</label><input name="nombre" value="${esc(p ? p.nombre : '')}" required></div>
             <div class="field"><label>Fecha de nacimiento</label><input type="date" name="fechaNacimiento" value="${p ? p.fechaNacimiento || '' : ''}"></div>
           </div>
+          <div class="field"><label>Nombre y apellido de padre o madre</label><input name="nombreTutor" value="${esc(p ? p.nombreTutor : '')}" placeholder="Si el paciente es menor de edad"></div>
           <div class="row-2">
             <div class="field"><label>Teléfono</label><input name="telefono" value="${esc(p ? p.telefono : '')}"></div>
             <div class="field"><label>Email</label><input type="email" name="email" value="${esc(p ? p.email : '')}"></div>
@@ -1381,6 +1514,7 @@ function savePaciente(ev, id){
   const data = {
     nombre: f.nombre.value.trim(),
     fechaNacimiento: f.fechaNacimiento.value,
+    nombreTutor: f.nombreTutor.value.trim(),
     telefono: f.telefono.value.trim(),
     email: f.email.value.trim(),
     obraSocial: f.obraSocial.value.trim(),
@@ -1445,15 +1579,27 @@ function changeEstadoPaciente(id, estado){
 }
 
 /* ================= HISTORIA CLÍNICA ================= */
-function setHcPatient(id){ STATE.hcPatientId = id || null; render(); }
+function setHcPatient(id){ STATE.hcPatientId = id || null; STATE.search = ''; render(); }
 
 function renderHistoriaClinica(){
   const options = `<option value="">— Elegir paciente —</option>` + [...STATE.patients].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p => `<option value="${p.id}" ${p.id === STATE.hcPatientId ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('');
   if(!STATE.hcPatientId){
+    let lista = [...STATE.patients].sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    if(STATE.search.trim()){
+      const q = STATE.search.trim().toLowerCase();
+      lista = lista.filter(p => p.nombre.toLowerCase().includes(q));
+    }
     return `
-      <div class="main-head"><div><h1>Historia clínica</h1><p class="sub">Elegí un paciente para ver o cargar su historia clínica.</p></div></div>
-      <div class="card" style="max-width:420px;">
-        <div class="field"><label>Paciente</label><select onchange="setHcPatient(this.value)">${options}</select></div>
+      <div class="main-head"><div><h1>Historia clínica</h1><p class="sub">Buscá o elegí un paciente para ver o cargar su historia clínica.</p></div></div>
+      <div class="card">
+        ${lista.length === 0 ? '<div class="empty-row">No se encontraron pacientes.</div>' : lista.map(p => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;" onclick="setHcPatient('${p.id}')">
+            <div>
+              <div style="font-weight:700;font-size:13.5px;">${esc(p.nombre)}</div>
+              <div style="font-size:12px;color:var(--paper-dim);">${calcEdad(p.fechaNacimiento) ?? '-'} años ${p.diagnostico ? '· ' + esc(p.diagnostico) : ''}</div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--paper-dim);"></i>
+          </div>`).join('')}
       </div>`;
   }
   const p = STATE.patients.find(x => x.id === STATE.hcPatientId);
@@ -1543,6 +1689,10 @@ function setInformePatientFilter(v){ STATE.informePatientFilter = v; render(); }
 function renderInformes(){
   let list = [...STATE.informes];
   if(STATE.informePatientFilter !== 'todos') list = list.filter(i => i.pacienteId === STATE.informePatientFilter);
+  if(STATE.search.trim()){
+    const q = STATE.search.trim().toLowerCase();
+    list = list.filter(i => i.titulo.toLowerCase().includes(q) || patientName(i.pacienteId).toLowerCase().includes(q));
+  }
   list.sort((a,b) => b.fecha.localeCompare(a.fecha));
   const patientOpts = `<option value="todos">Todos los pacientes</option>` + [...STATE.patients].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p => `<option value="${p.id}" ${STATE.informePatientFilter === p.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('');
 
