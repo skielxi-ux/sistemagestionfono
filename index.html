@@ -213,6 +213,7 @@
 <div id="modal-root"></div>
 <div id="toast" class="toast" style="display:none;"></div>
 <input type="file" id="restore-input" accept="application/json" style="display:none;" onchange="handleRestoreFile(this.files[0])">
+<input type="file" id="foto-perfil-input" accept="image/*" style="display:none;" onchange="handleFotoPerfilChange(this.files[0])">
 
 <script>
 /* ============================================================
@@ -252,6 +253,7 @@ let STATE = {
   reuniones: [],
   materiales: [],
   disponibilidad: null,
+  fotoPerfil: null,
   tab: 'dashboard',
   search: '',
   selectedPatientId: null,
@@ -264,6 +266,7 @@ let STATE = {
   pagoPatientFilter: 'todos',
   pagoEstadoFilter: 'todos',
   pagoRango: 'mes',
+  pagoMes: `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`,
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth()
 };
@@ -388,8 +391,9 @@ function loadAll(){
       STATE.informes = data.informes || [];
       STATE.reuniones = data.reuniones || [];
       STATE.materiales = data.materiales || [];
+      STATE.fotoPerfil = data.fotoPerfil || null;
     }else{
-      STATE.patients = []; STATE.hc = []; STATE.informes = []; STATE.reuniones = []; STATE.materiales = [];
+      STATE.patients = []; STATE.hc = []; STATE.informes = []; STATE.reuniones = []; STATE.materiales = []; STATE.fotoPerfil = null;
     }
   }).catch(e => {
     console.error('No se pudieron cargar los datos', e);
@@ -570,6 +574,19 @@ function renderPerfil(){
       <button class="btn" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i>Cerrar sesión</button>
     </div>
 
+    <div class="card" style="margin-bottom:20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+      ${STATE.fotoPerfil
+        ? `<img src="${STATE.fotoPerfil}" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:1px solid var(--line-strong);">`
+        : `<div style="width:76px;height:76px;border-radius:50%;background:var(--ink-3);display:flex;align-items:center;justify-content:center;color:var(--paper-dim);font-size:26px;"><i class="fa-solid fa-user"></i></div>`}
+      <div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:8px;">Foto de perfil</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="document.getElementById('foto-perfil-input').click()"><i class="fa-solid fa-camera"></i>${STATE.fotoPerfil ? 'Cambiar foto' : 'Subir foto'}</button>
+          ${STATE.fotoPerfil ? `<button class="btn btn-sm btn-danger" onclick="quitarFotoPerfil()"><i class="fa-solid fa-trash"></i>Quitar</button>` : ''}
+        </div>
+      </div>
+    </div>
+
     <div class="card" style="margin-bottom:20px;">
       <h3 style="margin:0 0 10px;font-size:15px;">Link de reservas para tus pacientes</h3>
       <div class="field"><label>URL donde publicaste turnos-publico.html</label>
@@ -621,6 +638,39 @@ function renderPerfil(){
       </div>`}
     </div>
   `;
+}
+function handleFotoPerfilChange(file){
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ alert('Elegí un archivo de imagen.'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 240;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      perfilDoc().set({ fotoPerfil: dataUrl }, { merge:true }).then(() => {
+        STATE.fotoPerfil = dataUrl;
+        render();
+        showToast('Foto de perfil actualizada');
+      }).catch(err => alert('Error al guardar la foto: ' + err.message));
+    };
+    img.onerror = () => alert('No se pudo leer la imagen.');
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function quitarFotoPerfil(){
+  perfilDoc().set({ fotoPerfil: firebase.firestore.FieldValue.delete() }, { merge:true }).then(() => {
+    STATE.fotoPerfil = null;
+    render();
+    showToast('Foto eliminada');
+  }).catch(err => alert('Error: ' + err.message));
 }
 function guardarBaseLinkPerfil(){
   const val = document.getElementById('perfil-base-link').value.trim();
@@ -871,10 +921,15 @@ function renderSidebar(){
       <div style="margin-top:8px;cursor:pointer;" onclick="openRestoreFile()">
         <i class="fa-solid fa-upload" style="margin-right:6px;"></i>Restaurar backup
       </div>
-      <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);">
-        <div style="font-size:11px;color:var(--paper-dim);margin-bottom:6px;word-break:break-all;">${esc(currentUser ? currentUser.email : '')}</div>
-        <div style="cursor:pointer;color:#A32D2D;" onclick="logout()">
-          <i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i>Cerrar sesión
+      <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px;">
+        ${STATE.fotoPerfil
+          ? `<img src="${STATE.fotoPerfil}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+          : `<div style="width:28px;height:28px;border-radius:50%;background:var(--ink-3);display:flex;align-items:center;justify-content:center;color:var(--paper-dim);font-size:12px;flex-shrink:0;"><i class="fa-solid fa-user"></i></div>`}
+        <div style="min-width:0;">
+          <div style="font-size:11px;color:var(--paper-dim);word-break:break-all;">${esc(currentUser ? currentUser.email : '')}</div>
+          <div style="cursor:pointer;color:#A32D2D;font-size:12px;" onclick="logout()">
+            <i class="fa-solid fa-right-from-bracket" style="margin-right:4px;"></i>Cerrar sesión
+          </div>
         </div>
       </div>
     </div>
@@ -1149,11 +1204,16 @@ function renderTurnosCalendario(){
 function setPagoPatientFilter(v){ STATE.pagoPatientFilter = v; render(); }
 function setPagoEstadoFilter(v){ STATE.pagoEstadoFilter = v; render(); }
 function setPagoRango(v){ STATE.pagoRango = v; render(); }
+function setPagoMes(v){ STATE.pagoMes = v; STATE.pagoRango = 'mes'; render(); }
+function nombreMes(mesStr){
+  const [y,m] = mesStr.split('-').map(Number);
+  return new Date(y, m-1, 1).toLocaleDateString('es-AR', { month:'long', year:'numeric' });
+}
 
 function turnosParaPagos(){
-  const hoy = new Date();
-  const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
-  const finMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-31`;
+  const [y,m] = STATE.pagoMes.split('-');
+  const inicioMes = `${y}-${m}-01`;
+  const finMes = `${y}-${m}-31`;
   let list = STATE.turnos.filter(t => t.estado !== 'cancelado');
   if(STATE.pagoRango === 'mes') list = list.filter(t => t.fecha >= inicioMes && t.fecha <= finMes);
   if(STATE.pagoPatientFilter !== 'todos') list = list.filter(t => t.pacienteId === STATE.pagoPatientFilter);
@@ -1162,14 +1222,15 @@ function turnosParaPagos(){
 }
 
 function renderPagos(){
-  const hoy = new Date();
-  const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
-  const finMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-31`;
+  const [y,m] = STATE.pagoMes.split('-');
+  const inicioMes = `${y}-${m}-01`;
+  const finMes = `${y}-${m}-31`;
   const turnosMes = STATE.turnos.filter(t => t.estado !== 'cancelado' && t.fecha >= inicioMes && t.fecha <= finMes);
   const cobradoMes = turnosMes.filter(t => (t.estadoPago || 'pendiente') === 'pagado').reduce((s,t) => s + (t.monto || 0), 0);
   const pendienteMes = turnosMes.filter(t => (t.estadoPago || 'pendiente') === 'pendiente').reduce((s,t) => s + (t.monto || 0), 0);
   const pendienteTotal = STATE.turnos.filter(t => t.estado !== 'cancelado' && (t.estadoPago || 'pendiente') === 'pendiente').reduce((s,t) => s + (t.monto || 0), 0);
   const cantSinCobrarMes = turnosMes.filter(t => (t.estadoPago || 'pendiente') === 'pendiente').length;
+  const labelMes = nombreMes(STATE.pagoMes);
 
   const list = turnosParaPagos();
   const patientOpts = `<option value="todos">Todos los pacientes</option>` + [...STATE.patients].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p => `<option value="${p.id}" ${STATE.pagoPatientFilter === p.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('');
@@ -1181,16 +1242,16 @@ function renderPagos(){
     </div>
 
     <div class="kpi-grid">
-      <div class="kpi"><div class="lbl">Cobrado este mes</div><div class="val sage">${fmtMoney(cobradoMes)}</div></div>
-      <div class="kpi"><div class="lbl">Pendiente este mes</div><div class="val brick">${fmtMoney(pendienteMes)}</div></div>
+      <div class="kpi"><div class="lbl">Cobrado · ${esc(labelMes)}</div><div class="val sage">${fmtMoney(cobradoMes)}</div></div>
+      <div class="kpi"><div class="lbl">Pendiente · ${esc(labelMes)}</div><div class="val brick">${fmtMoney(pendienteMes)}</div></div>
       <div class="kpi"><div class="lbl">Pendiente total</div><div class="val brick">${fmtMoney(pendienteTotal)}</div></div>
-      <div class="kpi"><div class="lbl">Sesiones sin cobrar (mes)</div><div class="val">${cantSinCobrarMes}</div></div>
+      <div class="kpi"><div class="lbl">Sesiones sin cobrar · ${esc(labelMes)}</div><div class="val">${cantSinCobrarMes}</div></div>
     </div>
 
     <div class="toolbar">
-      <div class="toolbar-filters">
-        <div class="filter-chip ${STATE.pagoRango === 'mes' ? 'active' : ''}" onclick="setPagoRango('mes')">Este mes</div>
-        <div class="filter-chip ${STATE.pagoRango === 'todos' ? 'active' : ''}" onclick="setPagoRango('todos')">Todos</div>
+      <div class="toolbar-filters" style="align-items:center;">
+        <input type="month" value="${STATE.pagoMes}" onchange="setPagoMes(this.value)" style="width:auto;padding:8px 10px;">
+        <div class="filter-chip ${STATE.pagoRango === 'todos' ? 'active' : ''}" onclick="setPagoRango('todos')">Ver todos los períodos</div>
         <div class="filter-chip ${STATE.pagoEstadoFilter === 'todos' ? 'active' : ''}" onclick="setPagoEstadoFilter('todos')">Todos los estados</div>
         <div class="filter-chip ${STATE.pagoEstadoFilter === 'pendiente' ? 'active' : ''}" onclick="setPagoEstadoFilter('pendiente')">Pendiente</div>
         <div class="filter-chip ${STATE.pagoEstadoFilter === 'pagado' ? 'active' : ''}" onclick="setPagoEstadoFilter('pagado')">Pagado</div>
