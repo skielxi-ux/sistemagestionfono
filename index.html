@@ -244,6 +244,7 @@ let currentUser = null;
 let loginMode = 'login'; // 'login' | 'signup'
 let unsubscribeTurnos = null;
 let unsubscribeSolicitudes = null;
+let turnoDraftPendiente = null;
 
 function col(name){ return db.collection('profesionales').doc(currentUser.uid).collection(name); }
 function perfilDoc(){ return db.collection('profesionales').doc(currentUser.uid); }
@@ -1416,30 +1417,97 @@ function marcarComoPendiente(id){
   }).catch(err => alert('Error al guardar: ' + err.message));
 }
 
-function openTurnoModal(id, presetFecha){
+function abrirPacienteDesdeTurno(btnEl){
+  const form = btnEl.closest('form');
+  turnoDraftPendiente = {
+    fecha: form.fecha.value,
+    hora: form.hora.value,
+    duracion: form.duracion.value,
+    tipo: form.tipo.value,
+    estado: form.estado.value,
+    monto: form.monto.value,
+    estadoPago: form.estadoPago.value,
+    medioPago: form.medioPago.value,
+    notas: form.notas.value
+  };
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box wide">
+        <div class="modal-head"><h3>Nuevo paciente</h3><button class="btn btn-ghost" onclick="cancelarPacienteDesdeTurno()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <form onsubmit="guardarPacienteDesdeTurno(event)">
+          <div class="row-2">
+            <div class="field"><label>Nombre y apellido de paciente</label><input name="nombre" required autofocus></div>
+            <div class="field"><label>Fecha de nacimiento</label><input type="date" name="fechaNacimiento"></div>
+          </div>
+          <div class="field"><label>Nombre y apellido de padre o madre</label><input name="nombreTutor" placeholder="Si el paciente es menor de edad"></div>
+          <div class="row-2">
+            <div class="field"><label>Teléfono</label><input name="telefono"></div>
+            <div class="field"><label>Obra social</label><select name="obraSocial">${obraSocialOptionsHtml('')}</select></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+            <button type="button" class="btn" onclick="cancelarPacienteDesdeTurno()"><i class="fa-solid fa-arrow-left"></i>Volver al turno</button>
+            <button type="submit" class="btn btn-solid"><i class="fa-solid fa-check"></i>Crear y continuar</button>
+          </div>
+        </form>
+      </div>
+    </div>`);
+}
+function cancelarPacienteDesdeTurno(){
+  const draft = turnoDraftPendiente;
+  turnoDraftPendiente = null;
+  openTurnoModal(null, null, draft);
+}
+function guardarPacienteDesdeTurno(ev){
+  ev.preventDefault();
+  const f = ev.target;
+  const nombre = f.nombre.value.trim();
+  if(!nombre){ alert('Ingresá el nombre del paciente.'); return; }
+  const nuevoPaciente = {
+    id: genId(), nombre, dni:'',
+    fechaNacimiento: f.fechaNacimiento.value,
+    nombreTutor: f.nombreTutor.value.trim(),
+    telefono: f.telefono.value.trim(),
+    email:'', obraSocial: f.obraSocial.value, nAfiliado:'',
+    motivoConsulta:'', diagnostico:'', fechaIngreso: todayStr(), estado:'activo', notas:''
+  };
+  STATE.patients.push(nuevoPaciente);
+  saveAll();
+  const draft = { ...(turnoDraftPendiente || {}), pacienteId: nuevoPaciente.id };
+  turnoDraftPendiente = null;
+  showToast('Paciente creado');
+  openTurnoModal(null, null, draft);
+}
+function openTurnoModal(id, presetFecha, draft){
   const t = id ? STATE.turnos.find(x => x.id === id) : null;
   const isNew = !t;
+  const v = (campo, fallback) => t ? t[campo] : (draft && draft[campo] !== undefined ? draft[campo] : fallback);
   openModal(`
     <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
       <div class="modal-box">
         <div class="modal-head"><h3>${isNew ? 'Nuevo turno' : 'Editar turno'}</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
         <form onsubmit="saveTurno(event,'${id || ''}')">
-          <div class="field"><label>Paciente</label><select name="pacienteId" required>${patientOptionsHtml(t ? t.pacienteId : '')}</select></div>
-          <div class="row-2">
-            <div class="field"><label>Fecha</label><input type="date" name="fecha" value="${t ? t.fecha : (presetFecha || todayStr())}" required></div>
-            <div class="field"><label>Hora</label><input type="time" name="hora" value="${t ? t.hora : '09:00'}" required></div>
+          <div class="field">
+            <label>Paciente</label>
+            <div style="display:flex;gap:8px;">
+              <select name="pacienteId" required style="flex:1;">${patientOptionsHtml(v('pacienteId',''))}</select>
+              <button type="button" class="btn btn-sm" title="Crear paciente nuevo" onclick="abrirPacienteDesdeTurno(this)"><i class="fa-solid fa-user-plus"></i></button>
+            </div>
           </div>
           <div class="row-2">
-            <div class="field"><label>Duración (min)</label><input type="number" name="duracion" min="10" step="5" value="${t ? t.duracion : 45}" required></div>
-            <div class="field"><label>Tipo de turno</label><select name="tipo">${optionsHtml(TIPOS_TURNO, t ? t.tipo : TIPOS_TURNO[1])}</select></div>
+            <div class="field"><label>Fecha</label><input type="date" name="fecha" value="${v('fecha', presetFecha || todayStr())}" required></div>
+            <div class="field"><label>Hora</label><input type="time" name="hora" value="${v('hora','09:00')}" required></div>
           </div>
-          <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_TURNO_STYLE, t ? t.estado : 'pendiente')}</select></div>
+          <div class="row-2">
+            <div class="field"><label>Duración (min)</label><input type="number" name="duracion" min="10" step="5" value="${v('duracion',45)}" required></div>
+            <div class="field"><label>Tipo de turno</label><select name="tipo">${optionsHtml(TIPOS_TURNO, v('tipo', TIPOS_TURNO[1]))}</select></div>
+          </div>
+          <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_TURNO_STYLE, v('estado','pendiente'))}</select></div>
           <div class="row-3">
-            <div class="field"><label>Monto de la sesión</label><input type="number" name="monto" min="0" step="1" value="${t && t.monto ? t.monto : (isNew && STATE.disponibilidad && STATE.disponibilidad.precioSesion ? STATE.disponibilidad.precioSesion : '')}" placeholder="0"></div>
-            <div class="field"><label>Estado de pago</label><select name="estadoPago">${styledOptionsHtml(ESTADO_PAGO_STYLE, t ? t.estadoPago : 'pendiente')}</select></div>
-            <div class="field"><label>Medio de pago</label><select name="medioPago"><option value="">—</option>${optionsHtml(MEDIOS_PAGO, t ? t.medioPago : '')}</select></div>
+            <div class="field"><label>Monto de la sesión</label><input type="number" name="monto" min="0" step="1" value="${v('monto', (isNew && STATE.disponibilidad && STATE.disponibilidad.precioSesion) ? STATE.disponibilidad.precioSesion : '')}" placeholder="0"></div>
+            <div class="field"><label>Estado de pago</label><select name="estadoPago">${styledOptionsHtml(ESTADO_PAGO_STYLE, v('estadoPago','pendiente'))}</select></div>
+            <div class="field"><label>Medio de pago</label><select name="medioPago"><option value="">—</option>${optionsHtml(MEDIOS_PAGO, v('medioPago',''))}</select></div>
           </div>
-          <div class="field"><label>Notas</label><textarea name="notas" rows="3">${esc(t ? t.notas : '')}</textarea></div>
+          <div class="field"><label>Notas</label><textarea name="notas" rows="3">${esc(v('notas',''))}</textarea></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
             ${!isNew ? `<button type="button" class="btn btn-danger" onclick="closeModal();confirmDelete('¿Eliminar este turno?','deleteTurno','${t.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>` : '<span></span>'}
             <button type="submit" class="btn btn-solid"><i class="fa-solid fa-check"></i>Guardar</button>
