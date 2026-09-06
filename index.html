@@ -802,6 +802,45 @@ function rechazarSolicitudConfirmado(id){
     showToast('Solicitud rechazada, el horario vuelve a estar libre');
   }).catch(err => alert('Error: ' + err.message));
 }
+function eliminarNotificacion(id){
+  const s = STATE.solicitudes.find(x => x.id === id);
+  if(!s) return;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box" style="max-width:380px;">
+        <div class="modal-head"><h3>Eliminar notificación</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;line-height:1.6;color:var(--paper-dim);margin-bottom:18px;">¿Eliminar la notificación de <b style="color:var(--ink);">${esc(s.nombre)}</b>? El horario del ${formatDate(s.fecha)} a las ${esc(s.hora)} vuelve a quedar disponible para reservar.</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-danger" onclick="rechazarSolicitudConfirmado('${id}')">Eliminar</button>
+        </div>
+      </div>
+    </div>`);
+}
+function confirmarLimpiarNotificaciones(){
+  if(STATE.solicitudes.length === 0) return;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box" style="max-width:400px;">
+        <div class="modal-head"><h3>Limpiar notificaciones</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;line-height:1.6;color:var(--paper-dim);margin-bottom:18px;">¿Eliminar las ${STATE.solicitudes.length} notificaciones pendientes? Los horarios que tenían reservados vuelven a quedar disponibles para reservar online. Esta acción no se puede deshacer.</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-danger" onclick="limpiarNotificaciones()">Eliminar todas</button>
+        </div>
+      </div>
+    </div>`);
+}
+function limpiarNotificaciones(){
+  const pendientes = [...STATE.solicitudes];
+  closeModal();
+  Promise.all(pendientes.map(s =>
+    col('solicitudes').doc(s.id).delete().then(() => clearOcupado(s.fecha, s.hora))
+  )).then(() => {
+    render();
+    showToast('Notificaciones limpiadas');
+  }).catch(err => alert('Error al limpiar: ' + err.message));
+}
 function seedData(){
   const p1 = genId(), p2 = genId(), p3 = genId();
   STATE.patients = [
@@ -902,7 +941,7 @@ function renderSidebar(){
     <div class="nav-group">
       <div class="nav-group-label">Principal</div>
       ${item('dashboard', 'fa-gauge', 'Dashboard')}
-      ${itemBadge('notificaciones', 'fa-bell', 'Notificaciones', STATE.solicitudes.length)}
+      ${itemBadge('notificaciones', 'fa-bell', 'Notificaciones', STATE.solicitudes.length + STATE.turnos.filter(t => t.estado === 'realizado' && (t.estadoPago || 'pendiente') === 'pendiente').length)}
       ${item('turnos', 'fa-calendar-check', 'Turnos', turnosHoy > 0)}
       ${item('pagos', 'fa-sack-dollar', 'Pagos')}
       ${item('pacientes', 'fa-users', 'Pacientes')}
@@ -1107,11 +1146,22 @@ function renderTurnos(){
 }
 function renderNotificaciones(){
   const lista = [...STATE.solicitudes].sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const pagosPendientes = STATE.turnos
+    .filter(t => t.estado === 'realizado' && (t.estadoPago || 'pendiente') === 'pendiente')
+    .sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const fmtMoney = n => '$' + Number(n || 0).toLocaleString('es-AR');
+  const totalCards = lista.length + pagosPendientes.length;
+
   return `
     <div class="main-head">
-      <div><h1>Notificaciones</h1><p class="sub">Solicitudes de turno pedidas online por tus pacientes.</p></div>
+      <div><h1>Notificaciones</h1><p class="sub">Solicitudes de turno y pagos pendientes de cobro.</p></div>
+      ${lista.length > 0 ? `<button class="btn btn-danger" onclick="confirmarLimpiarNotificaciones()"><i class="fa-solid fa-broom"></i>Limpiar solicitudes</button>` : ''}
     </div>
-    ${lista.length === 0 ? `<div class="card"><div class="empty-row">No tenés notificaciones pendientes.</div></div>` : lista.map(s => `
+    ${totalCards === 0 ? `<div class="card"><div class="empty-row">No tenés notificaciones pendientes.</div></div>` : ''}
+
+    ${lista.length > 0 ? `
+    <h3 style="margin:0 0 12px;font-size:14px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:.03em;">Solicitudes de turno</h3>
+    ${lista.map(s => `
       <div class="card item-card">
         <div class="head" style="align-items:center;">
           <div>
@@ -1124,9 +1174,30 @@ function renderNotificaciones(){
           <div class="item-actions">
             <button class="btn btn-sm btn-solid" onclick="aprobarSolicitud('${s.id}')"><i class="fa-solid fa-check"></i>Aprobar</button>
             <button class="btn btn-sm btn-danger" onclick="rechazarSolicitud('${s.id}')"><i class="fa-solid fa-xmark"></i>Rechazar</button>
+            <button class="btn btn-sm btn-ghost" title="Eliminar notificación" onclick="eliminarNotificacion('${s.id}')"><i class="fa-solid fa-trash" style="margin:0;"></i></button>
           </div>
         </div>
       </div>`).join('')}
+    ` : ''}
+
+    ${pagosPendientes.length > 0 ? `
+    <h3 style="margin:20px 0 12px;font-size:14px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:.03em;">Pagos pendientes</h3>
+    ${pagosPendientes.map(t => `
+      <div class="card item-card">
+        <div class="head" style="align-items:center;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="name">${esc(patientName(t.pacienteId))}</span>
+              <span class="pill" style="background:#FBEEE8;color:#A94E30;border-color:#EFD0BE;"><i class="fa-solid fa-sack-dollar"></i> Sesión sin cobrar</span>
+            </div>
+            <div class="meta">${formatDate(t.fecha)} · ${esc(t.hora)} · ${esc(t.tipo)} · ${fmtMoney(t.monto)}</div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-sm btn-solid" onclick="openPagoModal('${t.id}')"><i class="fa-solid fa-check"></i>Marcar pagado</button>
+          </div>
+        </div>
+      </div>`).join('')}
+    ` : ''}
   `;
 }
 function setTurnoEstadoFilter(e){ STATE.turnoEstadoFilter = e; render(); }
