@@ -257,6 +257,7 @@ let STATE = {
   informes: [],
   reuniones: [],
   materiales: [],
+  blocNotas: '',
   disponibilidad: null,
   fotoPerfil: null,
   tab: 'dashboard',
@@ -267,7 +268,8 @@ let STATE = {
   materialCategoria: 'todas',
   patientFilter: 'todos',
   turnoView: 'calendario',
-  turnoEstadoFilter: 'todos',
+  turnoEstadoFilter: 'activos',
+  turnoFechaFiltro: null,
   pagoPatientFilter: 'todos',
   pagoEstadoFilter: 'todos',
   pagoRango: 'mes',
@@ -285,7 +287,7 @@ const TIPOS_INFORME = ['Informe de evaluación', 'Informe de evolución', 'Infor
 const ESTADOS_INFORME = ['borrador', 'finalizado'];
 const CATEGORIAS_MATERIAL = ['Articulación', 'Lenguaje comprensivo', 'Lenguaje expresivo', 'Voz', 'Deglución y alimentación', 'Fluidez', 'Motricidad orofacial', 'Cognición y atención', 'Lectoescritura'];
 const TIPOS_MATERIAL = ['Ejercicio', 'Plantilla', 'Consigna para casa', 'Video', 'Enlace', 'Protocolo de evaluación'];
-const OBRAS_SOCIALES = ['AAPM', 'ASUNT', 'AVALIAN', 'BOREAL', 'DASUTEN', 'GALENO', 'IOSFA', 'IPSSPT', 'MEDIFE', 'NOBIS SALUD', 'OSDE', 'OSDEPYM', 'OSDOP', 'OSECAC', 'OSFE', 'OSIAP', 'OSPE', 'OSPRERA', 'OSUTHGRA', 'Prensa', 'PREVENCION SALUD', 'SANCOR SALUD', 'SWISS MEDICAL'];
+const OBRAS_SOCIALES = ['AAPM', 'ASUNT', 'AVALIAN', 'BOREAL', 'DASUTEN', 'GALENO', 'IOSFA', 'IPSSPT', 'MEDIFE', 'NOBIS SALUD', 'OSDE', 'OSDEPYM', 'OSDOP', 'OSECAC', 'OSFE', 'OSIAP', 'OSPE', 'OSPRERA', 'OSUTHGRA', 'Prensa', 'PREVENCION SALUD', 'RED DE SEGUROS', 'SANCOR SALUD', 'SWISS MEDICAL'];
 const MEDIOS_PAGO = ['Efectivo', 'Transferencia', 'Mercado Pago', 'Tarjeta de débito', 'Tarjeta de crédito', 'Otro'];
 
 const ESTADO_PAGO_STYLE = {
@@ -383,7 +385,8 @@ function saveAll(){
   if(!currentUser) return;
   const data = {
     patients: STATE.patients, hc: STATE.hc,
-    informes: STATE.informes, reuniones: STATE.reuniones, materiales: STATE.materiales
+    informes: STATE.informes, reuniones: STATE.reuniones, materiales: STATE.materiales,
+    blocNotas: STATE.blocNotas
   };
   perfilDoc().set(data, { merge:true }).catch(e => console.error('No se pudo guardar', e));
 }
@@ -397,8 +400,9 @@ function loadAll(){
       STATE.reuniones = data.reuniones || [];
       STATE.materiales = data.materiales || [];
       STATE.fotoPerfil = data.fotoPerfil || null;
+      STATE.blocNotas = data.blocNotas || '';
     }else{
-      STATE.patients = []; STATE.hc = []; STATE.informes = []; STATE.reuniones = []; STATE.materiales = []; STATE.fotoPerfil = null;
+      STATE.patients = []; STATE.hc = []; STATE.informes = []; STATE.reuniones = []; STATE.materiales = []; STATE.fotoPerfil = null; STATE.blocNotas = '';
     }
   }).catch(e => {
     console.error('No se pudieron cargar los datos', e);
@@ -981,6 +985,7 @@ function renderSidebar(){
       ${item('informes', 'fa-file-lines', 'Informes')}
       ${item('reuniones', 'fa-people-group', 'Reuniones')}
       ${item('material', 'fa-book-open', 'Material de trabajo')}
+      ${item('notas', 'fa-note-sticky', 'Bloc de notas')}
     </div>
     <div class="nav-group">
       <div class="nav-group-label">Configuración</div>
@@ -1022,6 +1027,7 @@ function render(skipSearchSync){
   else if(STATE.tab === 'informes') html = renderInformes();
   else if(STATE.tab === 'reuniones') html = renderReuniones();
   else if(STATE.tab === 'material') html = renderMaterial();
+  else if(STATE.tab === 'notas') html = renderNotas();
   else if(STATE.tab === 'perfil') html = renderPerfil();
   document.getElementById('content').innerHTML = html;
 
@@ -1159,7 +1165,8 @@ function renderTurnos(){
   return `
     <div class="main-head">
       <div><h1>Turnos</h1><p class="sub">Agenda de sesiones y evaluaciones.</p></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="date" value="${STATE.turnoFechaFiltro || ''}" onchange="setTurnoFechaFiltro(this.value)" title="Ir a una fecha puntual" style="padding:9px 11px;">
         <button class="btn btn-solid" onclick="openTurnoModal()"><i class="fa-solid fa-plus"></i>Nuevo turno</button>
       </div>
     </div>
@@ -1168,9 +1175,16 @@ function renderTurnos(){
         <div class="${STATE.turnoView === 'calendario' ? 'active' : ''}" onclick="setTurnoView('calendario')">Calendario</div>
         <div class="${STATE.turnoView === 'lista' ? 'active' : ''}" onclick="setTurnoView('lista')">Lista</div>
       </div>
-      ${STATE.turnoView === 'lista' ? `
+      ${STATE.turnoView === 'lista' && STATE.turnoFechaFiltro ? `
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="pill" style="background:#EEEDFE;color:#463ACB;border-color:#CECBF6;"><i class="fa-solid fa-calendar-day"></i> Mostrando: ${formatDate(STATE.turnoFechaFiltro)}</span>
+          <button class="btn btn-sm" onclick="limpiarTurnoFechaFiltro()">Ver todos los días</button>
+        </div>` : ''}
+      ${STATE.turnoView === 'lista' && !STATE.turnoFechaFiltro ? `
         <div class="toolbar-filters">
-          ${['todos', ...ESTADOS_TURNO].map(e => `<div class="filter-chip ${STATE.turnoEstadoFilter === e ? 'active' : ''}" onclick="setTurnoEstadoFilter('${e}')">${e === 'todos' ? 'Todos' : esc(ESTADO_TURNO_STYLE[e].label)}</div>`).join('')}
+          <div class="filter-chip ${STATE.turnoEstadoFilter === 'activos' ? 'active' : ''}" onclick="setTurnoEstadoFilter('activos')">Activos</div>
+          <div class="filter-chip ${STATE.turnoEstadoFilter === 'todos' ? 'active' : ''}" onclick="setTurnoEstadoFilter('todos')">Todos</div>
+          ${ESTADOS_TURNO.map(e => `<div class="filter-chip ${STATE.turnoEstadoFilter === e ? 'active' : ''}" onclick="setTurnoEstadoFilter('${e}')">${esc(ESTADO_TURNO_STYLE[e].label)}</div>`).join('')}
         </div>` : ''}
     </div>
     ${STATE.turnoView === 'calendario' ? renderTurnosCalendario() : renderTurnosLista()}
@@ -1233,11 +1247,19 @@ function renderNotificaciones(){
   `;
 }
 function setTurnoEstadoFilter(e){ STATE.turnoEstadoFilter = e; render(); }
+function setTurnoFechaFiltro(fecha){ STATE.turnoFechaFiltro = fecha || null; render(); }
+function limpiarTurnoFechaFiltro(){ STATE.turnoFechaFiltro = null; render(); }
 
 function renderTurnosLista(){
   const hoy = todayStr();
   let list = [...STATE.turnos].sort((a,b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
-  if(STATE.turnoEstadoFilter !== 'todos') list = list.filter(t => t.estado === STATE.turnoEstadoFilter);
+  if(STATE.turnoFechaFiltro){
+    list = list.filter(t => t.fecha === STATE.turnoFechaFiltro);
+  }else if(STATE.turnoEstadoFilter === 'activos'){
+    list = list.filter(t => t.estado === 'pendiente' || t.estado === 'confirmado');
+  }else if(STATE.turnoEstadoFilter !== 'todos'){
+    list = list.filter(t => t.estado === STATE.turnoEstadoFilter);
+  }
   if(list.length === 0) return `<div class="card"><div class="empty-row">No hay turnos para mostrar.</div></div>`;
   return list.map(t => `
     <div class="card item-card">
@@ -1294,12 +1316,17 @@ function renderTurnosCalendario(){
     <div class="cal-grid">
       ${dow.map(d => `<div class="cal-dow">${d}</div>`).join('')}
       ${cells.map(c => {
-        const dayTurnos = c.iso ? STATE.turnos.filter(t => t.fecha === c.iso).sort((a,b) => a.hora.localeCompare(b.hora)) : [];
-        const shown = dayTurnos.slice(0, 3);
-        const extra = dayTurnos.length - shown.length;
+        const dayTurnos = c.iso ? STATE.turnos.filter(t => t.fecha === c.iso).map(t => ({ ...t, _tipoEvento:'turno' })) : [];
+        const dayReuniones = c.iso ? STATE.reuniones.filter(r => r.fecha === c.iso && r.estado !== 'cancelada').map(r => ({ ...r, _tipoEvento:'reunion' })) : [];
+        const eventosDia = [...dayTurnos, ...dayReuniones].sort((a,b) => (a.hora || '').localeCompare(b.hora || ''));
+        const shown = eventosDia.slice(0, 3);
+        const extra = eventosDia.length - shown.length;
         return `<div class="cal-cell ${c.out ? 'out' : ''} ${c.iso === todayIso ? 'today' : ''}" onclick="${c.iso ? `openTurnoModal(null,'${c.iso}')` : ''}">
           <div class="cal-daynum">${c.day}</div>
-          ${shown.map(t => `<div class="cal-block" style="background:${estadoColor[t.estado]};color:${estadoText[t.estado]};" onclick="event.stopPropagation();openTurnoModal('${t.id}')">${esc(t.hora)} ${esc(patientName(t.pacienteId))}</div>`).join('')}
+          ${shown.map(ev => ev._tipoEvento === 'reunion'
+            ? `<div class="cal-block" style="background:#EEEDFE;color:#463ACB;" onclick="event.stopPropagation();openReunionModal('${ev.id}')"><i class="fa-solid fa-people-group" style="margin-right:3px;"></i>${esc(ev.hora)} ${esc(ev.titulo)}</div>`
+            : `<div class="cal-block" style="background:${estadoColor[ev.estado]};color:${estadoText[ev.estado]};" onclick="event.stopPropagation();openTurnoModal('${ev.id}')">${esc(ev.hora)} ${esc(patientName(ev.pacienteId))}</div>`
+          ).join('')}
           ${extra > 0 ? `<div class="cal-more">+${extra} más</div>` : ''}
         </div>`;
       }).join('')}
@@ -2427,6 +2454,28 @@ function renderMaterial(){
         </div>`).join('')}
     </div>`}
   `;
+}
+/* ================= BLOC DE NOTAS ================= */
+function renderNotas(){
+  return `
+    <div class="main-head">
+      <div><h1>Bloc de notas</h1><p class="sub">Anotaciones libres, ideas o recordatorios rápidos.</p></div>
+      <span id="notas-status" style="font-size:12px;color:var(--paper-dim);"></span>
+    </div>
+    <div class="card">
+      <textarea id="bloc-notas-textarea" rows="20" style="min-height:60vh;font-size:14px;line-height:1.6;resize:vertical;" placeholder="Escribí acá lo que necesites recordar…" oninput="onNotasInput(this.value)">${esc(STATE.blocNotas)}</textarea>
+    </div>
+  `;
+}
+function onNotasInput(val){
+  STATE.blocNotas = val;
+  const status = document.getElementById('notas-status');
+  if(status) status.textContent = 'Guardando…';
+  clearTimeout(window._notasGuardarTimer);
+  window._notasGuardarTimer = setTimeout(() => {
+    saveAll();
+    if(status) status.textContent = 'Guardado ✓';
+  }, 800);
 }
 function openMaterialModal(id){
   const m = id ? STATE.materiales.find(x => x.id === id) : null;
