@@ -1245,13 +1245,14 @@ function renderTurnosLista(){
         <div style="flex:1;">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span class="name">${esc(patientName(t.pacienteId))}</span>
-            ${pill(ESTADO_TURNO_STYLE, t.estado)}
+            <span style="cursor:pointer;" onclick="event.stopPropagation();openTurnoEstadoModal('${t.id}')">${pill(ESTADO_TURNO_STYLE, t.estado)}</span>
             ${t.fecha === hoy ? '<span class="pill" style="background:#EEEDFE;color:#463ACB;border-color:#CECBF6;">Hoy</span>' : ''}
           </div>
           <div class="meta">${formatDate(t.fecha)} · ${esc(t.hora)} · ${t.duracion} min · ${esc(t.tipo)}</div>
           ${t.notas ? `<div class="meta" style="margin-top:2px;">${esc(t.notas)}</div>` : ''}
         </div>
         <div class="item-actions">
+          <button class="btn btn-sm" onclick="event.stopPropagation();openRenovarModal('${t.id}')"><i class="fa-solid fa-rotate"></i>Renovar turno</button>
           <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmDelete('¿Eliminar este turno?','deleteTurno','${t.id}')"><i class="fa-solid fa-trash" style="margin:0;"></i></button>
         </div>
       </div>
@@ -1559,6 +1560,72 @@ function deleteTurno(id){
     showToast('Turno eliminado');
   }).catch(err => alert('Error al eliminar: ' + err.message));
 }
+function openTurnoEstadoModal(id){
+  const t = STATE.turnos.find(x => x.id === id);
+  if(!t) return;
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box" style="max-width:380px;">
+        <div class="modal-head"><h3>Cambiar estado</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;color:var(--paper-dim);margin-bottom:14px;">${esc(patientName(t.pacienteId))} · ${formatDate(t.fecha)} · ${esc(t.hora)}</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${ESTADOS_TURNO.map(e => `
+            <button type="button" class="btn ${e === t.estado ? 'btn-solid' : ''}" style="justify-content:flex-start;" onclick="cambiarEstadoTurno('${t.id}','${e}')">
+              ${pill(ESTADO_TURNO_STYLE, e)} ${e === t.estado ? ' (actual)' : ''}
+            </button>`).join('')}
+        </div>
+      </div>
+    </div>`);
+}
+function cambiarEstadoTurno(id, estado){
+  const t = STATE.turnos.find(x => x.id === id);
+  if(!t) return;
+  col('turnos').doc(id).set({ estado }, { merge:true }).then(() => {
+    if(estado === 'cancelado'){
+      clearOcupado(t.fecha, t.hora);
+    }else{
+      setOcupado(t.fecha, t.hora, 'turno', id);
+    }
+    closeModal();
+    showToast('Estado actualizado');
+  }).catch(err => alert('Error al guardar: ' + err.message));
+}
+function openRenovarModal(id){
+  const t = STATE.turnos.find(x => x.id === id);
+  if(!t) return;
+  const sugerido = addDaysStr(t.fecha, 7);
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box" style="max-width:380px;">
+        <div class="modal-head"><h3>Renovar turno</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <div style="font-size:13.5px;color:var(--paper-dim);margin-bottom:14px;">${esc(patientName(t.pacienteId))} · ${esc(t.tipo)} · ${t.duracion} min</div>
+        <div class="row-2">
+          <div class="field"><label>Nuevo día</label><input type="date" id="renovar-fecha" value="${sugerido}"></div>
+          <div class="field"><label>Hora</label><input type="time" id="renovar-hora" value="${t.hora}"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+          <button class="btn" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-solid" onclick="confirmarRenovarTurno('${id}')"><i class="fa-solid fa-rotate"></i>Crear turno</button>
+        </div>
+      </div>
+    </div>`);
+}
+function confirmarRenovarTurno(id){
+  const t = STATE.turnos.find(x => x.id === id);
+  if(!t) return;
+  const fecha = document.getElementById('renovar-fecha').value;
+  const hora = document.getElementById('renovar-hora').value;
+  if(!fecha || !hora){ alert('Elegí día y hora.'); return; }
+  const nuevo = {
+    pacienteId: t.pacienteId, fecha, hora, duracion: t.duracion, tipo: t.tipo,
+    estado: 'pendiente', monto: t.monto || 0, estadoPago: 'pendiente', medioPago: '', notas: t.notas || ''
+  };
+  col('turnos').add({ ...nuevo, creadoEn: Date.now() }).then(docRef => {
+    setOcupado(fecha, hora, 'turno', docRef.id);
+    closeModal();
+    showToast('Turno renovado');
+  }).catch(err => alert('Error al renovar: ' + err.message));
+}
 
 /* ================= PACIENTES ================= */
 function setPatientFilter(f){ STATE.patientFilter = f; render(); }
@@ -1680,7 +1747,10 @@ function renderPacienteDetail(){
     <div class="card" style="margin-top:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <h3 style="margin:0;font-size:15px;">Informes (${informes.length})</h3>
-        <button class="btn btn-sm" onclick="openInformeModal(null,'${p.id}')"><i class="fa-solid fa-plus"></i>Nuevo informe</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm" onclick="openAdjuntarInformeModal('${p.id}')"><i class="fa-solid fa-paperclip"></i>Adjuntar</button>
+          <button class="btn btn-sm" onclick="openInformeModal(null,'${p.id}')"><i class="fa-solid fa-plus"></i>Nuevo informe</button>
+        </div>
       </div>
       ${informes.length === 0 ? '<div class="empty-row">Sin informes cargados.</div>' : informes.map(i => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;" onclick="openInformeModal('${i.id}')">
@@ -1933,7 +2003,10 @@ function renderInformes(){
   return `
     <div class="main-head">
       <div><h1>Informes</h1><p class="sub">Informes de evaluación, evolución y alta.</p></div>
-      <button class="btn btn-solid" onclick="openInformeModal()"><i class="fa-solid fa-plus"></i>Nuevo informe</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" onclick="openAdjuntarInformeModal()"><i class="fa-solid fa-paperclip"></i>Adjuntar informe</button>
+        <button class="btn btn-solid" onclick="openInformeModal()"><i class="fa-solid fa-plus"></i>Nuevo informe</button>
+      </div>
     </div>
     <div class="toolbar">
       <div class="field" style="margin:0;max-width:260px;"><select onchange="setInformePatientFilter(this.value)">${patientOpts}</select></div>
@@ -1946,16 +2019,78 @@ function renderInformes(){
               <span class="name">${esc(i.titulo)}</span>
               ${pill(ESTADO_INFORME_STYLE, i.estado)}
             </div>
-            <div class="meta">${esc(i.tipo)} · ${esc(patientName(i.pacienteId))} · ${formatDate(i.fecha)}</div>
+            <div class="meta">${esc(i.tipo)} · ${esc(patientName(i.pacienteId))} · ${formatDate(i.fecha)}${i.archivoNombre ? ` · <i class="fa-solid fa-paperclip"></i> ${esc(i.archivoNombre)}` : ''}</div>
           </div>
           <div class="item-actions">
             <button class="btn btn-sm" style="border-color:#3F7A46;color:#3F7A46;" onclick="event.stopPropagation();sendInformeWhatsapp('${i.id}')"><i class="fa-brands fa-whatsapp"></i>Enviar por WhatsApp</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();printInforme('${i.id}')"><i class="fa-solid fa-print"></i>Imprimir</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();printInforme('${i.id}')"><i class="fa-solid fa-print"></i>${i.archivoUrl ? 'Ver archivo' : 'Imprimir'}</button>
             <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmDelete('¿Eliminar este informe?','deleteInforme','${i.id}')"><i class="fa-solid fa-trash" style="margin:0;"></i></button>
           </div>
         </div>
       </div>`).join('')}
   `;
+}
+function openAdjuntarInformeModal(pacienteId){
+  openModal(`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
+      <div class="modal-box wide">
+        <div class="modal-head"><h3>Adjuntar informe</h3><button class="btn btn-ghost" onclick="closeModal()"><i class="fa-solid fa-xmark" style="margin:0;"></i></button></div>
+        <p style="font-size:13px;color:var(--paper-dim);line-height:1.6;margin:0 0 16px;">
+          Subí tu informe (Word o PDF) a Google Drive, Dropbox o similar, activá "Cualquiera con el enlace puede ver" y pegá ese link acá abajo. No hace falta reescribir el contenido.
+        </p>
+        <form onsubmit="guardarInformeAdjunto(event)">
+          <div class="field"><label>Título</label><input name="titulo" placeholder="Ej: Informe de evaluación - Nombre del paciente" required></div>
+          <div class="row-2">
+            <div class="field"><label>Paciente</label><select name="pacienteId" required>${patientOptionsHtml(pacienteId)}</select></div>
+            <div class="field"><label>Tipo de informe</label><select name="tipo">${optionsHtml(TIPOS_INFORME, TIPOS_INFORME[0])}</select></div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>Fecha</label><input type="date" name="fecha" value="${todayStr()}" required></div>
+            <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_INFORME_STYLE, 'finalizado')}</select></div>
+          </div>
+          <div class="field"><label>Link al archivo (Google Drive, Dropbox, etc.)</label><input type="url" name="archivoUrl" placeholder="https://drive.google.com/…" required></div>
+          <div class="field"><label>Nombre del archivo (opcional, solo para identificarlo)</label><input name="archivoNombre" placeholder="Ej: Informe evaluación.pdf"></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+            <button type="submit" class="btn btn-solid"><i class="fa-solid fa-paperclip"></i>Adjuntar</button>
+          </div>
+        </form>
+      </div>
+    </div>`);
+}
+function guardarInformeAdjunto(ev){
+  ev.preventDefault();
+  const f = ev.target;
+  const archivoUrl = f.archivoUrl.value.trim();
+  if(!archivoUrl){ alert('Pegá el link al archivo.'); return; }
+  const pacienteId = f.pacienteId.value;
+  if(!pacienteId){ alert('Elegí un paciente.'); return; }
+  const titulo = f.titulo.value.trim();
+  if(!titulo){ alert('Ingresá un título.'); return; }
+
+  STATE.informes.push({
+    id: genId(),
+    titulo,
+    pacienteId,
+    tipo: f.tipo.value,
+    fecha: f.fecha.value,
+    estado: f.estado.value,
+    contenido: '',
+    archivoUrl,
+    archivoNombre: f.archivoNombre.value.trim() || null
+  });
+  saveAll();
+  closeModal();
+  render();
+  showToast('Informe adjuntado');
+}
+function quitarArchivoInforme(id){
+  const i = STATE.informes.find(x => x.id === id);
+  if(!i) return;
+  delete i.archivoUrl;
+  delete i.archivoNombre;
+  saveAll();
+  openInformeModal(id);
+  showToast('Archivo quitado del informe');
 }
 function openInformeModal(id, pacienteId){
   const i = id ? STATE.informes.find(x => x.id === id) : null;
@@ -1975,6 +2110,17 @@ function openInformeModal(id, pacienteId){
             <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_INFORME_STYLE, i ? i.estado : 'borrador')}</select></div>
           </div>
           <div class="field"><label>Contenido</label><textarea name="contenido" rows="8" placeholder="Redactá aquí el cuerpo del informe…">${esc(i ? i.contenido : '')}</textarea></div>
+          ${i && i.archivoUrl ? `
+          <div class="field">
+            <label>Archivo adjunto</label>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#F8F7F4;border-radius:var(--radius);padding:10px 12px;">
+              <span style="font-size:13px;"><i class="fa-solid fa-paperclip" style="margin-right:6px;"></i>${esc(i.archivoNombre || 'archivo')}</span>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="btn btn-sm" onclick="window.open('${i.archivoUrl}','_blank')">Ver</button>
+                <button type="button" class="btn btn-sm btn-danger" onclick="quitarArchivoInforme('${i.id}')">Quitar</button>
+              </div>
+            </div>
+          </div>` : ''}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;flex-wrap:wrap;">
             <div style="display:flex;gap:8px;">
               ${!isNew ? `<button type="button" class="btn btn-danger" onclick="closeModal();confirmDelete('¿Eliminar este informe?','deleteInforme','${i.id}')"><i class="fa-solid fa-trash"></i>Eliminar</button>` : ''}
@@ -2022,6 +2168,10 @@ function deleteInforme(id){
 function printInforme(id){
   const i = STATE.informes.find(x => x.id === id);
   if(!i) return;
+  if(i.archivoUrl){
+    window.open(i.archivoUrl, '_blank');
+    return;
+  }
   const w = window.open('', '_blank');
   w.document.write(`
     <html><head><title>${esc(i.titulo)}</title>
@@ -2134,11 +2284,18 @@ function confirmarEnvioWhatsapp(id){
   const p = STATE.patients.find(x => x.id === i.pacienteId);
   const numero = cleanPhoneForWhatsapp(p.telefono);
   closeModal();
-  downloadInformePdf(id);
-  const mensaje = `Hola ${p.nombre}, te comparto tu informe "${i.titulo}". Te adjunto el PDF a continuación.`;
-  const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
-  window.open(url, '_blank');
-  showToast('PDF descargado. Adjuntalo manualmente en el chat de WhatsApp que se abrió.');
+  if(i.archivoUrl){
+    const mensaje = `Hola ${p.nombre}, te comparto tu informe "${i.titulo}": ${i.archivoUrl}`;
+    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, '_blank');
+    showToast('Se abrió WhatsApp con el link del informe en el mensaje.');
+  }else{
+    downloadInformePdf(id);
+    const mensaje = `Hola ${p.nombre}, te comparto tu informe "${i.titulo}". Te adjunto el PDF a continuación.`;
+    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, '_blank');
+    showToast('PDF descargado. Adjuntalo manualmente en el chat de WhatsApp que se abrió.');
+  }
 }
 
 /* ================= REUNIONES ================= */
