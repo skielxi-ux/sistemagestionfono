@@ -1326,12 +1326,20 @@ function renderTurnosCalendario(){
         return `<div class="cal-cell ${c.out ? 'out' : ''} ${c.iso === todayIso ? 'today' : ''}" onclick="${c.iso ? `openTurnoModal(null,'${c.iso}')` : ''}">
           <div class="cal-daynum">${c.day}</div>
           ${shown.map(ev => {
-            if(ev._tipoEvento === 'reunion') return `<div class="cal-block" style="background:#EEEDFE;color:#463ACB;" onclick="event.stopPropagation();openReunionModal('${ev.id}')"><i class="fa-solid fa-people-group" style="margin-right:3px;"></i>${esc(ev.hora)} ${esc(ev.titulo)}</div>`;
+            if(ev._tipoEvento === 'reunion') return `<div class="cal-block" style="background:#EAF2FB;color:#2563A8;" onclick="event.stopPropagation();openReunionModal('${ev.id}')"><i class="fa-solid fa-people-group" style="margin-right:3px;"></i>${esc(ev.hora)} ${esc(ev.titulo)}</div>`;
             return `<div class="cal-block" style="background:${estadoColor[ev.estado]};color:${estadoText[ev.estado]};" onclick="event.stopPropagation();openTurnoModal('${ev.id}')">${esc(ev.hora)} ${esc(patientName(ev.pacienteId))}</div>`;
           }).join('')}
           ${extra > 0 ? `<div class="cal-more">+${extra} más</div>` : ''}
         </div>`;
       }).join('')}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:12px;color:var(--paper-dim);">
+      <span style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:3px;background:${estadoColor.pendiente};display:inline-block;"></span>Pendiente</span>
+      <span style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:3px;background:${estadoColor.confirmado};display:inline-block;"></span>Confirmado</span>
+      <span style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:3px;background:${estadoColor.realizado};display:inline-block;"></span>Realizado</span>
+      <span style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:3px;background:${estadoColor.cancelado};display:inline-block;"></span>Cancelado</span>
+      <span style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:3px;background:${estadoColor.ausente};display:inline-block;"></span>Ausente</span>
+      <span style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:3px;background:#EAF2FB;display:inline-block;"></span>Reunión</span>
     </div>
   `;
 }
