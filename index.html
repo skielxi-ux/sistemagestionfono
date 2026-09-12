@@ -979,7 +979,8 @@ function renderSidebar(){
       ${item('dashboard', 'fa-gauge', 'Dashboard')}
       ${itemBadge('notificaciones', 'fa-bell', 'Notificaciones', STATE.solicitudes.length + STATE.turnos.filter(t => t.estado === 'realizado' && (t.estadoPago || 'pendiente') === 'pendiente').length)}
       ${item('turnos', 'fa-calendar-check', 'Turnos', turnosHoy > 0)}
-      ${item('pagos', 'fa-sack-dollar', 'Pagos')}
+      ${item('pagos', 'fa-sack-dollar', 'Pagos por sesión')}
+      ${item('pagosMensuales', 'fa-calendar-days', 'Pagos mensuales')}
       ${item('pacientes', 'fa-users', 'Pacientes')}
       ${item('historia', 'fa-notes-medical', 'Historia clínica')}
       ${item('informes', 'fa-file-lines', 'Informes')}
@@ -1021,6 +1022,7 @@ function render(skipSearchSync){
   if(STATE.tab === 'dashboard') html = renderDashboard();
   else if(STATE.tab === 'turnos') html = renderTurnos();
   else if(STATE.tab === 'pagos') html = renderPagos();
+  else if(STATE.tab === 'pagosMensuales') html = renderPagosMensuales();
   else if(STATE.tab === 'notificaciones') html = renderNotificaciones();
   else if(STATE.tab === 'pacientes') html = STATE.selectedPatientId ? renderPacienteDetail() : renderPacientesList();
   else if(STATE.tab === 'historia') html = renderHistoriaClinica();
@@ -1344,25 +1346,82 @@ function nombreMes(mesStr){
   return new Date(y, m-1, 1).toLocaleDateString('es-AR', { month:'long', year:'numeric' });
 }
 
+function esPacienteMensual(pacienteId){
+  const p = STATE.patients.find(x => x.id === pacienteId);
+  return p && p.modalidadPago === 'mensual';
+}
 function turnosParaPagos(){
   const [y,m] = STATE.pagoMes.split('-');
   const inicioMes = `${y}-${m}-01`;
   const finMes = `${y}-${m}-31`;
-  let list = STATE.turnos.filter(t => t.estado !== 'cancelado');
+  let list = STATE.turnos.filter(t => t.estado !== 'cancelado' && !esPacienteMensual(t.pacienteId));
   if(STATE.pagoRango === 'mes') list = list.filter(t => t.fecha >= inicioMes && t.fecha <= finMes);
   if(STATE.pagoPatientFilter !== 'todos') list = list.filter(t => t.pacienteId === STATE.pagoPatientFilter);
   if(STATE.pagoEstadoFilter !== 'todos') list = list.filter(t => (t.estadoPago || 'pendiente') === STATE.pagoEstadoFilter);
   return list.sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+}
+function togglePagoMensual(pacienteId, mes){
+  const p = STATE.patients.find(x => x.id === pacienteId);
+  if(!p) return;
+  const actuales = p.mesesPagados || [];
+  const pagado = actuales.includes(mes);
+  p.mesesPagados = pagado ? actuales.filter(m2 => m2 !== mes) : [...actuales, mes];
+  saveAll();
+  render();
+  showToast(pagado ? 'Marcado como pendiente' : 'Mensualidad marcada como pagada');
+}
+function renderPagosMensuales(){
+  const labelMes = nombreMes(STATE.pagoMes);
+  const pacientesMensuales = STATE.patients.filter(p => p.modalidadPago === 'mensual').sort((a,b) => a.nombre.localeCompare(b.nombre));
+  const mensualesPagados = pacientesMensuales.filter(p => (p.mesesPagados || []).includes(STATE.pagoMes)).length;
+  const mensualesPendientes = pacientesMensuales.length - mensualesPagados;
+  const totalHistoricoPagos = pacientesMensuales.reduce((s,p) => s + (p.mesesPagados || []).length, 0);
+
+  return `
+    <div class="main-head">
+      <div><h1>Pagos mensuales</h1><p class="sub">Pacientes con modalidad de pago mensual (un pago cubre todas las sesiones del mes).</p></div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="lbl">Pacientes mensuales</div><div class="val">${pacientesMensuales.length}</div></div>
+      <div class="kpi"><div class="lbl">Pagadas · ${esc(labelMes)}</div><div class="val sage">${mensualesPagados}</div></div>
+      <div class="kpi"><div class="lbl">Pendientes · ${esc(labelMes)}</div><div class="val brick">${mensualesPendientes}</div></div>
+      <div class="kpi"><div class="lbl">Meses pagados (histórico)</div><div class="val">${totalHistoricoPagos}</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar-filters" style="align-items:center;">
+        <input type="month" value="${STATE.pagoMes}" onchange="setPagoMes(this.value)" style="width:auto;padding:8px 10px;">
+      </div>
+    </div>
+
+    ${pacientesMensuales.length === 0 ? `
+    <div class="card"><div class="empty-row">Todavía no tenés pacientes con modalidad de pago "Mensual". Podés cambiarlo desde la ficha del paciente (Editar → Modalidad de pago).</div></div>
+    ` : `
+    <div class="card">
+      <p style="font-size:12.5px;color:var(--paper-dim);margin:0 0 14px;">${mensualesPagados} de ${pacientesMensuales.length} pacientes con la mensualidad de ${esc(labelMes)} al día. No se llevan montos, solo si está pagado o no.</p>
+      ${pacientesMensuales.map(p => {
+        const pagado = (p.mesesPagados || []).includes(STATE.pagoMes);
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);">
+          <div style="font-weight:700;font-size:13.5px;cursor:pointer;" onclick="openPacienteDetail('${p.id}')">${esc(p.nombre)}</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${pill(ESTADO_PAGO_STYLE, pagado ? 'pagado' : 'pendiente')}
+            <button class="btn btn-sm ${pagado ? '' : 'btn-solid'}" onclick="togglePagoMensual('${p.id}','${STATE.pagoMes}')">${pagado ? 'Marcar pendiente' : 'Marcar pagado'}</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`}
+  `;
 }
 
 function renderPagos(){
   const [y,m] = STATE.pagoMes.split('-');
   const inicioMes = `${y}-${m}-01`;
   const finMes = `${y}-${m}-31`;
-  const turnosMes = STATE.turnos.filter(t => t.estado !== 'cancelado' && t.fecha >= inicioMes && t.fecha <= finMes);
+  const turnosMes = STATE.turnos.filter(t => t.estado !== 'cancelado' && !esPacienteMensual(t.pacienteId) && t.fecha >= inicioMes && t.fecha <= finMes);
   const cobradoMes = turnosMes.filter(t => (t.estadoPago || 'pendiente') === 'pagado').reduce((s,t) => s + (t.monto || 0), 0);
   const pendienteMes = turnosMes.filter(t => (t.estadoPago || 'pendiente') === 'pendiente').reduce((s,t) => s + (t.monto || 0), 0);
-  const pendienteTotal = STATE.turnos.filter(t => t.estado !== 'cancelado' && (t.estadoPago || 'pendiente') === 'pendiente').reduce((s,t) => s + (t.monto || 0), 0);
+  const pendienteTotal = STATE.turnos.filter(t => t.estado !== 'cancelado' && !esPacienteMensual(t.pacienteId) && (t.estadoPago || 'pendiente') === 'pendiente').reduce((s,t) => s + (t.monto || 0), 0);
   const cantSinCobrarMes = turnosMes.filter(t => (t.estadoPago || 'pendiente') === 'pendiente').length;
   const labelMes = nombreMes(STATE.pagoMes);
 
@@ -1372,7 +1431,7 @@ function renderPagos(){
 
   return `
     <div class="main-head">
-      <div><h1>Pagos</h1><p class="sub">Relevamiento de pagos de sesiones.</p></div>
+      <div><h1>Pagos por sesión</h1><p class="sub">Relevamiento de pagos de sesiones.</p></div>
     </div>
 
     <div class="kpi-grid">
@@ -1496,7 +1555,7 @@ function guardarPacienteDesdeTurno(ev){
     nombreTutor: f.nombreTutor.value.trim(),
     telefono: f.telefono.value.trim(),
     email:'', obraSocial: f.obraSocial.value, nAfiliado:'',
-    motivoConsulta:'', diagnostico:'', fechaIngreso: todayStr(), estado:'activo', notas:''
+    motivoConsulta:'', diagnostico:'', fechaIngreso: todayStr(), estado:'activo', modalidadPago:'sesion', mesesPagados:[], notas:''
   };
   STATE.patients.push(nuevoPaciente);
   saveAll();
@@ -1684,7 +1743,7 @@ function renderPacientesList(){
       <tbody>
         ${list.length === 0 ? `<tr><td colspan="7" class="empty-row">No se encontraron pacientes.</td></tr>` : list.map(p => `
           <tr class="clickable" onclick="openPacienteDetail('${p.id}')">
-            <td style="font-weight:700;">${esc(p.nombre)}</td>
+            <td style="font-weight:700;">${esc(p.nombre)} ${p.turnoFijo ? '<i class="fa-solid fa-thumbtack" style="color:var(--brass-bright);margin-left:4px;font-size:11px;" title="Turno fijo"></i>' : ''}</td>
             <td>${calcEdad(p.fechaNacimiento) ?? '-'}</td>
             <td>${esc(p.diagnostico || '-')}</td>
             <td>${esc(p.obraSocial || 'Ninguno')}</td>
@@ -1733,7 +1792,15 @@ function renderPacienteDetail(){
           <div><span style="color:var(--paper-dim);">Email:</span> ${esc(p.email || '-')}</div>
           <div><span style="color:var(--paper-dim);">Fecha de nacimiento:</span> ${formatDate(p.fechaNacimiento)}</div>
           ${p.nombreTutor ? `<div><span style="color:var(--paper-dim);">Padre/madre:</span> ${esc(p.nombreTutor)}</div>` : ''}
+          ${p.turnoFijo ? (() => {
+            const fechas = [...(p.turnoFijoFechas || [])].sort();
+            const proximas = fechas.filter(f => f >= todayStr());
+            const proxima = proximas[0];
+            const restantes = proximas.length - 1;
+            return `<div style="margin-top:6px;"><span class="pill" style="background:#EEEDFE;color:#463ACB;border-color:#CECBF6;"><i class="fa-solid fa-thumbtack"></i> Turno fijo${p.turnoFijoHora ? ' · ' + esc(p.turnoFijoHora) : ''}${proxima ? ' · próxima: ' + formatDate(proxima) : ''}${restantes > 0 ? ` (+${restantes} más)` : ''}</span></div>`;
+          })() : ''}
           <div><span style="color:var(--paper-dim);">Obra social:</span> ${esc(p.obraSocial || 'Ninguno')} ${p.nAfiliado ? `(N° ${esc(p.nAfiliado)})` : ''}</div>
+          <div><span style="color:var(--paper-dim);">Modalidad de pago:</span> ${p.modalidadPago === 'mensual' ? 'Mensual' : 'Por sesión'}</div>
           <div><span style="color:var(--paper-dim);">Ingreso al consultorio:</span> ${formatDate(p.fechaIngreso)}</div>
           <div><span style="color:var(--paper-dim);">Estado:</span> <span style="cursor:pointer;" onclick="openEstadoModal('${p.id}')">${pill(ESTADO_PACIENTE_STYLE, p.estado)}</span></div>
         </div>
@@ -1804,9 +1871,65 @@ function goToHistoriaFor(pacienteId){
   render();
 }
 
+let turnoFijoFechasSel = [];
+let turnoFijoCalYear = new Date().getFullYear();
+let turnoFijoCalMonth = new Date().getMonth();
+function toggleTurnoFijoFields(checked){
+  document.getElementById('turno-fijo-fields').style.display = checked ? 'block' : 'none';
+}
+function renderMiniCalTurnoFijoHTML(){
+  const year = turnoFijoCalYear, month = turnoFijoCalMonth;
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthLabel = first.toLocaleDateString('es-AR', { month:'long', year:'numeric' });
+  const dow = ['D','L','M','M','J','V','S'];
+  let cellsHtml = '';
+  for(let i = 0; i < startOffset; i++) cellsHtml += `<div></div>`;
+  for(let d = 1; d <= daysInMonth; d++){
+    const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const selected = turnoFijoFechasSel.includes(iso);
+    cellsHtml += `<div onclick="toggleFechaTurnoFijo('${iso}')" style="cursor:pointer;text-align:center;padding:6px 0;border-radius:4px;font-size:12.5px;${selected ? 'background:#5B4FE0;color:#fff;font-weight:700;' : ''}">${d}</div>`;
+  }
+  const listaHtml = turnoFijoFechasSel.length === 0
+    ? `<div style="font-size:12px;color:var(--paper-dim);margin-top:10px;">Todavía no marcaste ninguna fecha.</div>`
+    : `<div style="margin-top:10px;">${[...turnoFijoFechasSel].sort().map(f => `<span class="pill" style="margin:2px 4px 2px 0;">${formatDate(f)} <i class="fa-solid fa-xmark" style="margin-left:6px;cursor:pointer;" onclick="quitarFechaTurnoFijo('${f}')"></i></span>`).join('')}</div>`;
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <button type="button" class="btn btn-sm btn-ghost" onclick="navMiniCalTurnoFijo(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+      <div style="font-size:13px;font-weight:700;text-transform:capitalize;">${monthLabel}</div>
+      <button type="button" class="btn btn-sm btn-ghost" onclick="navMiniCalTurnoFijo(1)"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:11px;color:var(--paper-dim);text-align:center;margin-bottom:4px;">
+      ${dow.map(d => `<div>${d}</div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">${cellsHtml}</div>
+    ${listaHtml}
+  `;
+}
+function navMiniCalTurnoFijo(delta){
+  turnoFijoCalMonth += delta;
+  if(turnoFijoCalMonth < 0){ turnoFijoCalMonth = 11; turnoFijoCalYear--; }
+  if(turnoFijoCalMonth > 11){ turnoFijoCalMonth = 0; turnoFijoCalYear++; }
+  document.getElementById('turno-fijo-mini-cal').innerHTML = renderMiniCalTurnoFijoHTML();
+}
+function toggleFechaTurnoFijo(iso){
+  const idx = turnoFijoFechasSel.indexOf(iso);
+  if(idx > -1) turnoFijoFechasSel.splice(idx, 1);
+  else turnoFijoFechasSel.push(iso);
+  document.getElementById('turno-fijo-mini-cal').innerHTML = renderMiniCalTurnoFijoHTML();
+}
+function quitarFechaTurnoFijo(iso){
+  turnoFijoFechasSel = turnoFijoFechasSel.filter(f => f !== iso);
+  document.getElementById('turno-fijo-mini-cal').innerHTML = renderMiniCalTurnoFijoHTML();
+}
 function openPacienteModal(id){
   const p = id ? STATE.patients.find(x => x.id === id) : null;
   const isNew = !p;
+  turnoFijoFechasSel = (p && p.turnoFijoFechas) ? [...p.turnoFijoFechas] : [];
+  const hoy = new Date();
+  turnoFijoCalYear = hoy.getFullYear();
+  turnoFijoCalMonth = hoy.getMonth();
   openModal(`
     <div class="modal-overlay" onclick="if(event.target===this)closeModal();">
       <div class="modal-box wide">
@@ -1825,12 +1948,27 @@ function openPacienteModal(id){
             <div class="field"><label>Obra social</label><select name="obraSocial">${obraSocialOptionsHtml(p ? p.obraSocial : '')}</select></div>
             <div class="field"><label>N° de afiliado</label><input name="nAfiliado" value="${esc(p ? p.nAfiliado : '')}"></div>
           </div>
+          <div class="field"><label>Modalidad de pago</label><select name="modalidadPago">
+            <option value="sesion" ${!p || p.modalidadPago !== 'mensual' ? 'selected' : ''}>Por sesión</option>
+            <option value="mensual" ${p && p.modalidadPago === 'mensual' ? 'selected' : ''}>Mensual</option>
+          </select></div>
           <div class="field"><label>Motivo de consulta</label><input name="motivoConsulta" value="${esc(p ? p.motivoConsulta : '')}"></div>
           <div class="row-2">
             <div class="field"><label>Diagnóstico</label><input name="diagnostico" value="${esc(p ? p.diagnostico : '')}"></div>
             <div class="field"><label>Fecha de ingreso</label><input type="date" name="fechaIngreso" value="${p ? p.fechaIngreso || '' : todayStr()}"></div>
           </div>
           <div class="field"><label>Estado</label><select name="estado">${styledOptionsHtml(ESTADO_PACIENTE_STYLE, p ? p.estado : 'activo')}</select></div>
+          <div class="field" style="border:1px solid var(--line-strong);border-radius:var(--radius);padding:12px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:0;">
+              <input type="checkbox" id="paciente-turno-fijo-check" name="turnoFijo" ${p && p.turnoFijo ? 'checked' : ''} onchange="toggleTurnoFijoFields(this.checked)" style="width:auto;">
+              Tiene turno fijo
+            </label>
+            <div id="turno-fijo-fields" style="display:${p && p.turnoFijo ? 'block' : 'none'};margin-top:12px;">
+              <div class="field" style="max-width:220px;"><label>Hora habitual</label><input type="time" name="turnoFijoHora" value="${p ? p.turnoFijoHora || '' : ''}"></div>
+              <label style="margin-bottom:6px;">Marcá cada fecha en la que tiene turno fijo</label>
+              <div id="turno-fijo-mini-cal" style="border:1px solid var(--line);border-radius:var(--radius);padding:10px;max-width:280px;">${renderMiniCalTurnoFijoHTML()}</div>
+            </div>
+          </div>
           <div class="field"><label>Notas</label><textarea name="notas" rows="3">${esc(p ? p.notas : '')}</textarea></div>
           <div style="display:flex;justify-content:flex-end;margin-top:6px;">
             <button type="submit" class="btn btn-solid"><i class="fa-solid fa-check"></i>Guardar</button>
@@ -1839,9 +1977,13 @@ function openPacienteModal(id){
       </div>
     </div>`);
 }
+function toggleTurnoFijoFields(checked){
+  document.getElementById('turno-fijo-fields').style.display = checked ? 'grid' : 'none';
+}
 function savePaciente(ev, id){
   ev.preventDefault();
   const f = ev.target;
+  const tieneTurnoFijo = f.turnoFijo.checked;
   const data = {
     nombre: f.nombre.value.trim(),
     fechaNacimiento: f.fechaNacimiento.value,
@@ -1850,10 +1992,14 @@ function savePaciente(ev, id){
     email: f.email.value.trim(),
     obraSocial: f.obraSocial.value.trim(),
     nAfiliado: f.nAfiliado.value.trim(),
+    modalidadPago: f.modalidadPago.value,
     motivoConsulta: f.motivoConsulta.value.trim(),
     diagnostico: f.diagnostico.value.trim(),
     fechaIngreso: f.fechaIngreso.value,
     estado: f.estado.value,
+    turnoFijo: tieneTurnoFijo,
+    turnoFijoHora: tieneTurnoFijo ? f.turnoFijoHora.value : '',
+    turnoFijoFechas: tieneTurnoFijo ? [...turnoFijoFechasSel].sort() : [],
     notas: f.notas.value.trim()
   };
   if(!data.nombre){ alert('Ingresá el nombre del paciente.'); return; }
@@ -1861,7 +2007,7 @@ function savePaciente(ev, id){
     const p = STATE.patients.find(x => x.id === id);
     Object.assign(p, data);
   }else{
-    STATE.patients.push({ id: genId(), dni:'', ...data });
+    STATE.patients.push({ id: genId(), dni:'', mesesPagados: [], ...data });
   }
   saveAll();
   closeModal();
