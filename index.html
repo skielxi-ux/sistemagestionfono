@@ -1325,10 +1325,10 @@ function renderTurnosCalendario(){
         const extra = eventosDia.length - shown.length;
         return `<div class="cal-cell ${c.out ? 'out' : ''} ${c.iso === todayIso ? 'today' : ''}" onclick="${c.iso ? `openTurnoModal(null,'${c.iso}')` : ''}">
           <div class="cal-daynum">${c.day}</div>
-          ${shown.map(ev => ev._tipoEvento === 'reunion'
-            ? `<div class="cal-block" style="background:#EEEDFE;color:#463ACB;" onclick="event.stopPropagation();openReunionModal('${ev.id}')"><i class="fa-solid fa-people-group" style="margin-right:3px;"></i>${esc(ev.hora)} ${esc(ev.titulo)}</div>`
-            : `<div class="cal-block" style="background:${estadoColor[ev.estado]};color:${estadoText[ev.estado]};" onclick="event.stopPropagation();openTurnoModal('${ev.id}')">${esc(ev.hora)} ${esc(patientName(ev.pacienteId))}</div>`
-          ).join('')}
+          ${shown.map(ev => {
+            if(ev._tipoEvento === 'reunion') return `<div class="cal-block" style="background:#EEEDFE;color:#463ACB;" onclick="event.stopPropagation();openReunionModal('${ev.id}')"><i class="fa-solid fa-people-group" style="margin-right:3px;"></i>${esc(ev.hora)} ${esc(ev.titulo)}</div>`;
+            return `<div class="cal-block" style="background:${estadoColor[ev.estado]};color:${estadoText[ev.estado]};" onclick="event.stopPropagation();openTurnoModal('${ev.id}')">${esc(ev.hora)} ${esc(patientName(ev.pacienteId))}</div>`;
+          }).join('')}
           ${extra > 0 ? `<div class="cal-more">+${extra} más</div>` : ''}
         </div>`;
       }).join('')}
@@ -2003,16 +2003,46 @@ function savePaciente(ev, id){
     notas: f.notas.value.trim()
   };
   if(!data.nombre){ alert('Ingresá el nombre del paciente.'); return; }
+  let pacienteId = id;
   if(id){
     const p = STATE.patients.find(x => x.id === id);
     Object.assign(p, data);
   }else{
-    STATE.patients.push({ id: genId(), dni:'', mesesPagados: [], ...data });
+    pacienteId = genId();
+    STATE.patients.push({ id: pacienteId, dni:'', mesesPagados: [], ...data });
   }
   saveAll();
-  closeModal();
-  render();
-  showToast('Paciente guardado');
+
+  const nuevasFechas = tieneTurnoFijo
+    ? data.turnoFijoFechas.filter(fecha => !STATE.turnos.some(t => t.pacienteId === pacienteId && t.fecha === fecha))
+    : [];
+
+  if(nuevasFechas.length === 0){
+    closeModal();
+    render();
+    showToast('Paciente guardado');
+    return;
+  }
+
+  const hora = data.turnoFijoHora || '09:00';
+  const duracion = (STATE.disponibilidad && STATE.disponibilidad.duracionTurno) || 45;
+  const monto = (STATE.disponibilidad && STATE.disponibilidad.precioSesion) || 0;
+  Promise.all(nuevasFechas.map(fecha =>
+    col('turnos').add({
+      pacienteId, fecha, hora, duracion,
+      tipo:'Sesión de tratamiento', estado:'pendiente',
+      monto, estadoPago:'pendiente', medioPago:'',
+      notas:'Turno fijo', creadoEn: Date.now()
+    }).then(docRef => setOcupado(fecha, hora, 'turno', docRef.id))
+  )).then(() => {
+    closeModal();
+    render();
+    showToast(`Paciente guardado y ${nuevasFechas.length} turno${nuevasFechas.length === 1 ? '' : 's'} fijo${nuevasFechas.length === 1 ? '' : 's'} creado${nuevasFechas.length === 1 ? '' : 's'}`);
+  }).catch(err => {
+    closeModal();
+    render();
+    alert('El paciente se guardó, pero hubo un error creando algunos turnos fijos: ' + err.message);
+  });
 }
 function deletePaciente(id){
   const turnosDelPaciente = STATE.turnos.filter(x => x.pacienteId === id);
